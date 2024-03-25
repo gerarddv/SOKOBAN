@@ -46,7 +46,7 @@ class IAAssistance extends IA {
         for(int j = 0; j<niveau.c; j++)
             for(int i = 0; i< niveau.l; i++){
                 if(niveau.aCaisse(i, j)){
-                    //l.add()
+                    //l.add()  add to list
                 }
             }
         return l;

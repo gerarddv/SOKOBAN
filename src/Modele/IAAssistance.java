@@ -119,7 +119,17 @@ class IAAssistance extends IA {
 
     public List<Node> getNeighbors(Node node, int[][] grid) {
         List<Node> neighbors = new ArrayList<>();
-        //#TODO Logic to get valid neighboring nodes
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
+
+        for (int[] direction : directions) {
+            int newRow = node.lig + direction[0];
+            int newCol = node.col + direction[1];
+
+            if (niveau.estOccupable(newRow, newCol)) {
+                Node n = new Node(newRow, newCol);
+                neighbors.add(n);
+            }
+        }
         return neighbors;
     }
 

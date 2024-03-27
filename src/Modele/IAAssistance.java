@@ -191,6 +191,47 @@ class IAAssistance extends IA {
         dir[1] = d.col - m.col;
         return dir;
     }
+
+    public Sequence<Coup> createSequenceDeCoups(List<Node> cheminJoueur, List<Node> cheminBoite, Node player) {
+        Sequence<Coup> sequenceDeCoups = Configuration.nouvelleSequence();
+
+        // Obtenez les mouvements du joueur
+        for (int i = 0; i < cheminJoueur.size() - 1; i++) {
+            Node currentNode = cheminJoueur.get(i);
+            Node nextNode = cheminJoueur.get(i + 1);
+
+            // Créez un nouveau coup pour le mouvement du joueur
+            Coup coup = new Coup();
+            coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
+            sequenceDeCoups.insereQueue(coup);
+        }
+
+        // Obtenez les mouvements du joueur et de la boîte
+        for (int i = 0; i < cheminBoite.size() - 1; i++) {
+            Node currentNode = cheminBoite.get(i);
+            Node nextNode = cheminBoite.get(i + 1);
+
+            // Obtenez les directions pour les mouvements du joueur et de la boîte
+            int[] directionPousseur = getDirection(currentNode, nextNode);
+            int[] directionCaisse = getDirection(nextNode, currentNode);
+
+            // Vérifiez si le joueur peut pousser la boîte tout en se déplaçant
+            if (directionCaisse[0] != 0 || directionCaisse[1] != 0) {
+                // Créez un nouveau coup pour le mouvement du joueur et de la boîte
+                Coup coup = new Coup();
+                coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
+                coup.deplacementCaisse(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
+                sequenceDeCoups.insereQueue(coup);
+            } else {
+                // Sinon, créez simplement un mouvement pour le joueur
+                Coup coup = new Coup();
+                coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
+                sequenceDeCoups.insereQueue(coup);
+            }
+        }
+
+        return sequenceDeCoups;
+    }
     @Override
     public Sequence<Coup> joue() {
         Sequence<Coup> resultat = Configuration.nouvelleSequence();
@@ -223,6 +264,7 @@ class IAAssistance extends IA {
         for( Node n : playerPath){
             System.out.println("(" + n.lig + " , " + n.col + ")");
         }
+        resultat = createSequenceDeCoups(playerPath, boxPath, player);
         return resultat;
 
     }

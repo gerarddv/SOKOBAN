@@ -219,8 +219,8 @@ class IAAssistance extends IA {
             if (directionCaisse[0] != 0 || directionCaisse[1] != 0) {
                 // Créez un nouveau coup pour le mouvement du joueur et de la boîte
                 Coup coup = new Coup();
-                coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
                 coup.deplacementCaisse(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
+                coup.deplacementPousseur(currentNode.lig - directionPousseur[0], currentNode.col - directionPousseur[1], nextNode.lig- directionPousseur[0], nextNode.col- directionPousseur[1]);
                 sequenceDeCoups.insereQueue(coup);
             } else {
                 // Sinon, créez simplement un mouvement pour le joueur

@@ -41,6 +41,16 @@ class IAAssistance extends IA {
         r = new Random();
     }
 
+    public class Node{
+        int lig, col;
+        Node parent;
+        int f, g, h;
+        public Node(int lig, int col){
+            this.lig = lig;
+            this.col = col;
+        }
+    }
+
     public List<int[]> findBoxes(){
         List<int[]> l = new ArrayList<>();
         for(int j = 0; j<niveau.c; j++)
@@ -55,22 +65,25 @@ class IAAssistance extends IA {
         return l;
     }
 
-    public class Node{
-        int lig, col;
-        Node parent;
-        int f, g, h;
-        public Node(int lig, int col){
-            this.lig = lig;
-            this.col = col;
-        }
+    public List<int[]> findGoals(){
+        List<int[]> l = new ArrayList<>();
+        for(int j = 0; j<niveau.c; j++)
+            for(int i = 0; i< niveau.l; i++){
+                if(niveau.aBut(i, j)){
+                    int[] el = new int[2]; // Créer un nouveau tableau pour chaque boîte
+                    el[0] = i;
+                    el[1] = j;
+                    l.add(el);  // Ajouter à la liste
+                }
+            }
+        return l;
     }
-
-    public boolean isBoxBlocked(Node box){
+    public boolean isBoxBlocked(int[] box){
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
         int adjWall = 0;
         for (int[] direction : directions) {
-            int newRow = box.lig + direction[0];
-            int newCol = box.col + direction[1];
+            int newRow = box[0] + direction[0];
+            int newCol = box[1] + direction[1];
             if(niveau.aMur(newRow,newCol) || niveau.aMur(newRow,newCol)){
                 adjWall++;
             }
@@ -83,6 +96,15 @@ class IAAssistance extends IA {
         }
         else if(adjWall == 1){
             //check neighbors
+        }
+        return false;
+    }
+    public boolean isBadState(){
+        List<int[]> boxes = findBoxes();
+        for (int[] box : boxes){
+            if(isBoxBlocked(box)){
+                return true;
+            }
         }
         return false;
     }
@@ -146,7 +168,7 @@ class IAAssistance extends IA {
             int newRow = node.lig + direction[0];
             int newCol = node.col + direction[1];
 
-            if (niveau.estOccupable(newRow, newCol)) {
+            if (niveau.estOccupable(newRow, newCol) || niveau.aPousseur(newRow,newCol)) {
                 Node n = new Node(newRow, newCol);
                 neighbors.add(n);
             }
@@ -155,7 +177,7 @@ class IAAssistance extends IA {
     }
 
     public List<Node> findPathBetweenBoxAndGoal(Node box, Node goal, int[][] grid){
-        //#TODO Logic to find path between box and goal
+        //#TODO Logic to find path between box and goal, add conditions to test block case
         return findPath(box, goal);
     }
     public List<Node> findPathBetweenBoxAndPlayer(Node box, Node player, int[][] grid) {
@@ -163,35 +185,45 @@ class IAAssistance extends IA {
         return findPath(box, player);
     }
 
+    public int[] getDirection(Node m, Node d){
+        int[] dir = new int[2];
+        dir[0] = d.lig - m.lig;
+        dir[1] = d.col - m.col;
+        return dir;
+    }
     @Override
     public Sequence<Coup> joue() {
+        Sequence<Coup> resultat = Configuration.nouvelleSequence();
         //#TODO Convert list node to sequence des coups
         int pousseurL = niveau.lignePousseur();
         int pousseurC = niveau.colonnePousseur();
 
-        // Ici, a titre d'exemple, on peut construire une séquence de coups
-        // qui sera jouée par l'AnimationJeuAutomatique
-        int nb = r.nextInt(5)+1;
-        Configuration.info("Entrée dans la méthode de jeu de l'IA");
-        Configuration.info("Construction d'une séquence de " + nb + " coups");
-        for (int i = 0; i < nb; i++) {
-            // Mouvement du pousseur
-            Coup coup = new Coup();
-            boolean libre = false;
-            while (!libre) {
-                int nouveauL = r.nextInt(niveau.lignes());
-                int nouveauC = r.nextInt(niveau.colonnes());
-                if (niveau.estOccupable(nouveauL, nouveauC)) {
-                    Configuration.info("Téléportation en (" + nouveauL + ", " + nouveauC + ") !");
-                    coup.deplacementPousseur(pousseurL, pousseurC, nouveauL, nouveauC);
-                    resultat.insereQueue(coup);
-                    pousseurL = nouveauL;
-                    pousseurC = nouveauC;
-                    libre = true;
-                }
-            }
+        List<int[]> boxes = findBoxes();
+        List<int[]> goals = findGoals();
+
+        Node box = new Node(boxes.get(0)[0], boxes.get(0)[1]);
+        System.out.println("Box " + box.lig + "," + box.col);
+        Node goal = new Node(goals.get(0)[0], goals.get(0)[1]);
+        System.out.println("Goal " + goal.lig + "," + goal.col);
+        Node player = new Node(pousseurL, pousseurC);
+        System.out.println("Player " + player.lig + "," + player.col);
+
+        List<Node> boxPath = findPathBetweenBoxAndGoal(box, goal, niveau.cases);
+        int[] direction = getDirection(boxPath.get(0), boxPath.get(1));
+        Node boxSide = new Node(box.lig - direction[0], box.col - direction[1]);
+        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
+        List<Node> playerPath = findPathBetweenBoxAndPlayer(boxSide, player, niveau.cases);
+
+        System.out.println("boxpath");
+        for( Node n : boxPath){
+            System.out.println("(" + n.lig + " , " + n.col + ")");
         }
-        Configuration.info("Sortie de la méthode de jeu de l'IA");
+        System.out.println("playerpath");
+        Collections.reverse(playerPath);
+        for( Node n : playerPath){
+            System.out.println("(" + n.lig + " , " + n.col + ")");
+        }
         return resultat;
+
     }
 }

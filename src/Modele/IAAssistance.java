@@ -78,13 +78,13 @@ class IAAssistance extends IA {
             }
         return l;
     }
-    public boolean isBoxBlocked(int[] box){
+    public boolean isBoxBlocked(int[] box, Niveau lvl){
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
         int adjWall = 0;
         for (int[] direction : directions) {
             int newRow = box[0] + direction[0];
             int newCol = box[1] + direction[1];
-            if(niveau.aMur(newRow,newCol) || niveau.aMur(newRow,newCol)){
+            if(lvl.aMur(newRow,newCol) || lvl.aMur(newRow,newCol)){
                 adjWall++;
             }
         }
@@ -99,53 +99,16 @@ class IAAssistance extends IA {
         }
         return false;
     }
-    public boolean isBadState(){
+    public boolean isBadState(Niveau lvl){
         List<int[]> boxes = findBoxes();
         for (int[] box : boxes){
-            if(isBoxBlocked(box)){
+            if(isBoxBlocked(box, lvl)){
                 return true;
             }
         }
         return false;
     }
 
-    public List<Node> findPath(Node origin, Node end){
-        List<Node> openList = new ArrayList<>();
-        List<Node> closedList = new ArrayList<>();
-        openList.add(origin);
-        while(!openList.isEmpty()){
-            Node curr = openList.get(0);
-            for(Node n : openList){
-                if (n.f < curr.f){
-                    curr = n;
-                }
-            }
-            openList.remove(curr);
-            closedList.add(curr);
-
-            if (curr.lig == end.lig && curr.col == end.col) {
-                return constructPath(curr);
-            }
-
-            List<Node> neighbors = getNeighbors(curr, niveau.cases);
-            for(Node neighbor : neighbors){
-                if(closedList.contains(neighbor)){
-                    continue;
-                }
-
-                int testG = curr.g + 1; //cout de se deplacer sur un voisin
-                neighbor.parent = curr;
-                neighbor.g = testG;
-                neighbor.h = heuristic(neighbor, end);
-                neighbor.f = neighbor.g + neighbor.h;
-
-                if(!openList.contains(neighbor)){
-                    openList.add(neighbor);
-                }
-            }
-        }
-        return null;
-    }
     public List<Node> constructPath(Node node) {
         List<Node> path = new ArrayList<>();
         while (node != null) {
@@ -160,7 +123,7 @@ class IAAssistance extends IA {
         return Math.abs(a.lig - b.lig) + Math.abs(a.col - b.col);
     }
 
-    public List<Node> getNeighbors(Node node, int[][] grid) {
+    public List<Node> getNeighbors(Node node, Niveau lvl) {
         List<Node> neighbors = new ArrayList<>();
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
 
@@ -168,7 +131,25 @@ class IAAssistance extends IA {
             int newRow = node.lig + direction[0];
             int newCol = node.col + direction[1];
 
-            if (niveau.estOccupable(newRow, newCol) || niveau.aPousseur(newRow,newCol)) {
+            if (lvl.estOccupable(newRow, newCol) || lvl.aPousseur(newRow,newCol)) {
+                Node n = new Node(newRow, newCol);
+                neighbors.add(n);
+            }
+        }
+        return neighbors;
+    }
+    public List<Node> getPlayerNeighbors(Node node, Niveau lvl) {
+        List<Node> neighbors = new ArrayList<>();
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
+
+        for (int[] direction : directions) {
+            int newRow = node.lig + direction[0];
+            int newCol = node.col + direction[1];
+
+            if (lvl.estOccupable(newRow, newCol)) {
+                if(lvl.aCaisse(newRow, newCol)){
+                    System.out.println("Caisse");
+                }
                 Node n = new Node(newRow, newCol);
                 neighbors.add(n);
             }
@@ -176,13 +157,78 @@ class IAAssistance extends IA {
         return neighbors;
     }
 
-    public List<Node> findPathBetweenBoxAndGoal(Node box, Node goal, int[][] grid){
-        //#TODO Logic to find path between box and goal, add conditions to test block case
-        return findPath(box, goal);
+    public List<Node> findPathBetweenBoxAndGoal(Node box, Node goal, Niveau lvl){
+        List<Node> openList = new ArrayList<>();
+        List<Node> closedList = new ArrayList<>();
+        openList.add(box);
+        while(!openList.isEmpty()){
+            Node curr = openList.get(0);
+            for(Node n : openList){
+                if (n.f < curr.f){
+                    curr = n;
+                }
+            }
+            openList.remove(curr);
+            closedList.add(curr);
+
+            if (curr.lig == goal.lig && curr.col == goal.col) {
+                return constructPath(curr);
+            }
+            List<Node> neighbors = getNeighbors(curr, lvl);
+            for(Node neighbor : neighbors){
+                if(closedList.contains(neighbor)){
+                    continue;
+                }
+
+                int testG = curr.g + 1; //cout de se deplacer sur un voisin
+                neighbor.parent = curr;
+                neighbor.g = testG;
+                neighbor.h = heuristic(neighbor, goal);
+                neighbor.f = neighbor.g + neighbor.h;
+
+                if(!openList.contains(neighbor)){
+                    openList.add(neighbor);
+                }
+            }
+        }
+        return null;
     }
-    public List<Node> findPathBetweenBoxAndPlayer(Node player, Node box, int[][] grid) {
-        //#TODO Main logic to find path between box and player
-        return findPath(player, box);
+    public List<Node> findPathBetweenBoxAndPlayer(Node playerPos, Node boxSide, Niveau lvl) {
+        List<Node> openList = new ArrayList<>();
+        List<Node> closedList = new ArrayList<>();
+        openList.add(playerPos);
+        while(!openList.isEmpty()){
+            Node curr = openList.get(0);
+            for(Node n : openList){
+                if (n.f < curr.f){
+                    curr = n;
+                }
+            }
+            openList.remove(curr);
+            closedList.add(curr);
+
+            if (curr.lig == boxSide.lig && curr.col == boxSide.col) {
+                return constructPath(curr);
+            }
+
+            List<Node> neighbors = getPlayerNeighbors(curr, lvl);
+            for(Node neighbor : neighbors){
+                if(closedList.contains(neighbor)){
+                    continue;
+                }
+
+                int testG = curr.g + 1; //cout de se deplacer sur un voisin
+                neighbor.parent = curr;
+                neighbor.g = testG;
+                neighbor.h = heuristic(neighbor, boxSide);
+                neighbor.f = neighbor.g + neighbor.h;
+
+                if(!openList.contains(neighbor)){
+                    openList.add(neighbor);
+                }
+            }
+        }
+        return null;
     }
 
     public int[] getDirection(Node m, Node d){
@@ -192,7 +238,7 @@ class IAAssistance extends IA {
         return dir;
     }
 
-    public boolean joueurPeutPousserBoite(Node player, Node box, int[][] grid, int[] direction) {
+    public boolean playerCanPushBox(Node player, Node box, int[][] grid, int[] direction) {
         // Nouvelle position de la boîte après le déplacement
         int newBoxRow = box.lig + direction[0];
         int newBoxCol = box.col + direction[1];
@@ -223,8 +269,12 @@ class IAAssistance extends IA {
         // Le pousseur n'est pas adjacent à la caisse
         return false;
     }
-
-    public Sequence<Coup> createSequenceDeCoups(List<Node> cheminJoueur, List<Node> cheminBoite, Node player) {
+    public Niveau moveBoxCoords(Niveau lvl, Node boxOrigin, Node boxDest){
+        lvl.videCase(boxOrigin.lig, boxOrigin.col);
+        lvl.ajouteCaisse(boxDest.lig, boxDest.col);
+        return lvl;
+    }
+    public Sequence<Coup> createSequenceDeCoups(List<Node> cheminJoueur, List<Node> cheminBoite, Niveau lvl) {
         Sequence<Coup> sequenceDeCoups = Configuration.nouvelleSequence();
 
         // Obtenez les mouvements du joueur
@@ -235,8 +285,8 @@ class IAAssistance extends IA {
             // Créez un nouveau coup pour le mouvement du joueur
             Coup coup = new Coup();
             coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
-            niveau.pousseurL = nextNode.lig;
-            niveau.pousseurC = nextNode.col;
+            lvl.pousseurL = nextNode.lig;
+            lvl.pousseurC = nextNode.col;
             sequenceDeCoups.insereQueue(coup);
         }
 
@@ -244,7 +294,7 @@ class IAAssistance extends IA {
         for (int i = 0; i < cheminBoite.size() - 1; i++) {
             Node currentNode = cheminBoite.get(i);
             Node nextNode = cheminBoite.get(i + 1);
-            Node playerPos = new Node(niveau.pousseurL, niveau.pousseurC);
+            Node playerPos = new Node(lvl.pousseurL, lvl.pousseurC);
 
             // Obtenez les directions pour les mouvements du joueur et de la boîte
             int[] directionPousseur = getDirection(playerPos, currentNode);
@@ -255,15 +305,17 @@ class IAAssistance extends IA {
                 // Créez un nouveau coup pour le mouvement du joueur et de la boîte
                 Coup coup = new Coup();
                 coup.deplacementCaisse(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
-                coup.deplacementPousseur(currentNode.lig - directionPousseur[0], currentNode.col - directionPousseur[1], nextNode.lig- directionPousseur[0], nextNode.col - directionPousseur[1]);
+                // corriger deplacement playerPos->currentNode
+                lvl = moveBoxCoords(lvl, currentNode, nextNode);
+                coup.deplacementPousseur(playerPos.lig, playerPos.col, currentNode.lig, currentNode.col);
                 sequenceDeCoups.insereQueue(coup);
             } else {
                 // Sinon, créez simplement un mouvement pour le joueur
                 Node boxPosToPush = new Node(currentNode.lig - directionCaisse[0], currentNode.col - directionCaisse[1]);
-                List<Node> replacement = findPathBetweenBoxAndPlayer(playerPos, boxPosToPush,niveau.cases);
+                List<Node> replacement = findPathBetweenBoxAndPlayer(playerPos, boxPosToPush, lvl);
                 for (int j = 0; j < replacement.size() - 1; j++) {
-                    Node curr = replacement.get(i);
-                    Node next = replacement.get(i + 1);
+                    Node curr = replacement.get(j);
+                    Node next = replacement.get(j + 1);
 
                     // Créez un nouveau coup pour le mouvement du joueur
                     Coup coup = new Coup();
@@ -271,8 +323,8 @@ class IAAssistance extends IA {
                     sequenceDeCoups.insereQueue(coup);
                 }
             }
-            niveau.pousseurL = currentNode.lig;
-            niveau.pousseurC = currentNode.col;
+            lvl.pousseurL = currentNode.lig;
+            lvl.pousseurC = currentNode.col;
         }
         return sequenceDeCoups;
     }
@@ -282,6 +334,7 @@ class IAAssistance extends IA {
         //#TODO Convert list node to sequence des coups
         int pousseurL = niveau.lignePousseur();
         int pousseurC = niveau.colonnePousseur();
+        Niveau lvl = niveau.clone();
 
         List<int[]> boxes = findBoxes();
         List<int[]> goals = findGoals();
@@ -293,11 +346,11 @@ class IAAssistance extends IA {
         Node player = new Node(pousseurL, pousseurC);
 //        System.out.println("Player " + player.lig + "," + player.col);
 //
-        List<Node> boxPath = findPathBetweenBoxAndGoal(box, goal, niveau.cases);
+        List<Node> boxPath = findPathBetweenBoxAndGoal(box, goal, lvl);
         int[] direction = getDirection(boxPath.get(0), boxPath.get(1));
         Node boxSide = new Node(box.lig - direction[0], box.col - direction[1]);
 //        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
-        List<Node> playerPath = findPathBetweenBoxAndPlayer(player, boxSide, niveau.cases);
+        List<Node> playerPath = findPathBetweenBoxAndPlayer(player, boxSide, lvl);
 //
 //        System.out.println("boxpath");
 //        for( Node n : boxPath){
@@ -308,7 +361,7 @@ class IAAssistance extends IA {
 //        for( Node n : playerPath){
 //            System.out.println("(" + n.lig + " , " + n.col + ")");
 //        }
-        resultat = createSequenceDeCoups(playerPath, boxPath, player);
+        resultat = createSequenceDeCoups(playerPath, boxPath, lvl);
         return resultat;
 
     }

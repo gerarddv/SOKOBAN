@@ -180,9 +180,9 @@ class IAAssistance extends IA {
         //#TODO Logic to find path between box and goal, add conditions to test block case
         return findPath(box, goal);
     }
-    public List<Node> findPathBetweenBoxAndPlayer(Node box, Node player, int[][] grid) {
+    public List<Node> findPathBetweenBoxAndPlayer(Node player, Node box, int[][] grid) {
         //#TODO Main logic to find path between box and player
-        return findPath(box, player);
+        return findPath(player, box);
     }
 
     public int[] getDirection(Node m, Node d){
@@ -190,6 +190,38 @@ class IAAssistance extends IA {
         dir[0] = d.lig - m.lig;
         dir[1] = d.col - m.col;
         return dir;
+    }
+
+    public boolean joueurPeutPousserBoite(Node player, Node box, int[][] grid, int[] direction) {
+        // Nouvelle position de la boîte après le déplacement
+        int newBoxRow = box.lig + direction[0];
+        int newBoxCol = box.col + direction[1];
+
+        // Vérifie si la case où la boîte doit être déplacée est vide ou un objectif
+        if (grid[newBoxRow][newBoxCol] == 0 || grid[newBoxRow][newBoxCol] == 8) {
+            // Vérifie si le joueur est adjacent à la boîte dans la direction de poussée
+            if (player.lig == box.lig + direction[0] && player.col == box.col + direction[1]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean playerAdjToBox(Node player, Node box) {
+        // Coordonnées du pousseur
+        int playerRow = player.lig;
+        int playerCol = player.col;
+        // Coordonnées de la caisse
+        int boxRow = box.lig;
+        int boxCol = box.col;
+        // Vérification des cases adjacentes
+        if ((Math.abs(playerRow - boxRow) == 1 && playerCol == boxCol) ||
+                (Math.abs(playerCol - boxCol) == 1 && playerRow == boxRow)) {
+            // Le pousseur est adjacent à la caisse
+            return true;
+        }
+        // Le pousseur n'est pas adjacent à la caisse
+        return false;
     }
 
     public Sequence<Coup> createSequenceDeCoups(List<Node> cheminJoueur, List<Node> cheminBoite, Node player) {
@@ -210,26 +242,35 @@ class IAAssistance extends IA {
         for (int i = 0; i < cheminBoite.size() - 1; i++) {
             Node currentNode = cheminBoite.get(i);
             Node nextNode = cheminBoite.get(i + 1);
+            Node playerPos = new Node(niveau.pousseurL, niveau.pousseurC);
 
             // Obtenez les directions pour les mouvements du joueur et de la boîte
-            int[] directionPousseur = getDirection(currentNode, nextNode);
+            int[] directionPousseur = getDirection(playerPos, currentNode);
             int[] directionCaisse = getDirection(nextNode, currentNode);
 
             // Vérifiez si le joueur peut pousser la boîte tout en se déplaçant
-            if (directionCaisse[0] != 0 || directionCaisse[1] != 0) {
+            if ((directionCaisse[0] == directionPousseur[0] && directionCaisse[1] == directionPousseur[1]) && playerAdjToBox(playerPos,currentNode)) {
                 // Créez un nouveau coup pour le mouvement du joueur et de la boîte
                 Coup coup = new Coup();
                 coup.deplacementCaisse(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
-                coup.deplacementPousseur(currentNode.lig - directionPousseur[0], currentNode.col - directionPousseur[1], nextNode.lig- directionPousseur[0], nextNode.col- directionPousseur[1]);
+                coup.deplacementPousseur(currentNode.lig - directionPousseur[0], currentNode.col - directionPousseur[1], nextNode.lig- directionPousseur[0], nextNode.col - directionPousseur[1]);
                 sequenceDeCoups.insereQueue(coup);
             } else {
                 // Sinon, créez simplement un mouvement pour le joueur
-                Coup coup = new Coup();
-                coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
-                sequenceDeCoups.insereQueue(coup);
+                Node boxPosToPush = new Node(currentNode.lig - directionCaisse[0], currentNode.col - directionCaisse[1]);
+                List<Node> replacement = findPathBetweenBoxAndPlayer(playerPos, boxPosToPush,niveau.cases);
+                for (int j = 0; j < replacement.size() - 1; j++) {
+                    Node curr = replacement.get(i);
+                    Node next = replacement.get(i + 1);
+
+                    // Créez un nouveau coup pour le mouvement du joueur
+                    Coup coup = new Coup();
+                    coup.deplacementPousseur(curr.lig, curr.col, next.lig, next.col);
+                    sequenceDeCoups.insereQueue(coup);
+                }
+
             }
         }
-
         return sequenceDeCoups;
     }
     @Override
@@ -243,27 +284,27 @@ class IAAssistance extends IA {
         List<int[]> goals = findGoals();
 
         Node box = new Node(boxes.get(0)[0], boxes.get(0)[1]);
-        System.out.println("Box " + box.lig + "," + box.col);
+//        System.out.println("Box " + box.lig + "," + box.col);
         Node goal = new Node(goals.get(0)[0], goals.get(0)[1]);
-        System.out.println("Goal " + goal.lig + "," + goal.col);
+//        System.out.println("Goal " + goal.lig + "," + goal.col);
         Node player = new Node(pousseurL, pousseurC);
-        System.out.println("Player " + player.lig + "," + player.col);
-
+//        System.out.println("Player " + player.lig + "," + player.col);
+//
         List<Node> boxPath = findPathBetweenBoxAndGoal(box, goal, niveau.cases);
         int[] direction = getDirection(boxPath.get(0), boxPath.get(1));
         Node boxSide = new Node(box.lig - direction[0], box.col - direction[1]);
-        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
+//        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
         List<Node> playerPath = findPathBetweenBoxAndPlayer(boxSide, player, niveau.cases);
-
-        System.out.println("boxpath");
-        for( Node n : boxPath){
-            System.out.println("(" + n.lig + " , " + n.col + ")");
-        }
-        System.out.println("playerpath");
-        Collections.reverse(playerPath);
-        for( Node n : playerPath){
-            System.out.println("(" + n.lig + " , " + n.col + ")");
-        }
+//
+//        System.out.println("boxpath");
+//        for( Node n : boxPath){
+//            System.out.println("(" + n.lig + " , " + n.col + ")");
+//        }
+//        System.out.println("playerpath");
+//        Collections.reverse(playerPath);
+//        for( Node n : playerPath){
+//            System.out.println("(" + n.lig + " , " + n.col + ")");
+//        }
         resultat = createSequenceDeCoups(playerPath, boxPath, player);
         return resultat;
 

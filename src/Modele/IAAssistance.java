@@ -309,6 +309,8 @@ class IAAssistance extends IA {
                 lvl = moveBoxCoords(lvl, currentNode, nextNode);
                 coup.deplacementPousseur(playerPos.lig, playerPos.col, currentNode.lig, currentNode.col);
                 sequenceDeCoups.insereQueue(coup);
+                lvl.pousseurL = currentNode.lig;
+                lvl.pousseurC = currentNode.col;
             } else {
                 // Sinon, créez simplement un mouvement pour le joueur
                 Node boxPosToPush = new Node(currentNode.lig - directionCaisse[0], currentNode.col - directionCaisse[1]);
@@ -321,10 +323,14 @@ class IAAssistance extends IA {
                     Coup coup = new Coup();
                     coup.deplacementPousseur(curr.lig, curr.col, next.lig, next.col);
                     sequenceDeCoups.insereQueue(coup);
+                    lvl.pousseurL = next.lig;
+                    lvl.pousseurC = next.col;
+                    //#TODO once done need to recalculate player path to push the box ?
+
                 }
+                i--;
             }
-            lvl.pousseurL = currentNode.lig;
-            lvl.pousseurC = currentNode.col;
+
         }
         return sequenceDeCoups;
     }

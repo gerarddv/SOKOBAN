@@ -102,9 +102,13 @@ class IAAssistance extends IA {
         return wallPositions;
     }
 
-    public boolean check2x2Space(int[] direction, Node freeSpace, Niveau lvl){
-        return ((lvl.estVide(freeSpace.lig + direction[0],  freeSpace.col + direction[0])) && (lvl.estVide(freeSpace.lig + direction[0]*2,  freeSpace.col + direction[0]*2))
-        && (lvl.estVide(freeSpace.lig + direction[0],  freeSpace.col + direction[0])) && (lvl.estVide(freeSpace.lig + direction[0]*2,  freeSpace.col + direction[0]*2)));
+    public boolean check3x3Space(int[] direction, Node freeSpace, Node freeSpace2, Node freeSpace3, Niveau lvl){
+        return ((lvl.estVide(freeSpace2.lig + direction[0],  freeSpace2.col + direction[0]))
+                && (lvl.estVide(freeSpace2.lig + direction[0]*2,  freeSpace2.col + direction[0]*2))
+                && (lvl.estVide(freeSpace.lig + direction[0],  freeSpace.col + direction[0]))
+                && (lvl.estVide(freeSpace.lig + direction[0]*2,  freeSpace.col + direction[0]*2))
+                && (lvl.estVide(freeSpace3.lig + direction[0],  freeSpace.col + direction[0]))
+                && (lvl.estVide(freeSpace3.lig + direction[0]*2,  freeSpace.col + direction[0]*2)));
     }
     public int checkBoxNeighbors(int currentAdj, List<int[]> directionsToExplore, Node currentPos, Niveau lvl){
         for(int[] direction : directionsToExplore){//the directions to explore are the free spaces
@@ -123,7 +127,9 @@ class IAAssistance extends IA {
                 else if(lvl.estVide(currentPos.lig + direction[0], currentPos.col + direction[1]) &&
                         (lvl.estVide(currentPos.lig + direction[0] + wallPositionOffset[0], currentPos.col + direction[1] + wallPositionOffset[1]))){
                     Node freeSpace = new Node(currentPos.lig + direction[0] + wallPositionOffset[0],currentPos.col + direction[1] + wallPositionOffset[1]);
-                    if(check2x2Space(direction, freeSpace, lvl)){
+                    Node freeSpace2 = new Node(currentPos.lig + direction[0],currentPos.col + direction[1]);
+                    Node freeSapce3 = new Node(currentPos.lig + direction[0] - wallPositionOffset[0],currentPos.col + direction[1] - wallPositionOffset[1]);
+                    if(check3x3Space(direction, freeSpace, freeSpace2, freeSapce3, lvl)){
                         return 0; // we can get the box out if only one wall on the side, if two, recheck for one wall
                     }
                 }

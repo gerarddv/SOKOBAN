@@ -78,11 +78,14 @@ class IAAssistance extends IA {
 
     public List<int[]> getWallPosition(int[] direction, List<int[]> DirectionsToExplore){
         List<int[]> wallPositions = new ArrayList<>();
+
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
         List<int[]> directionsList = new ArrayList<>(Arrays.asList(directions));
         switch (DirectionsToExplore.size()){
-            case 2:     //cas tunnel, cas corner deja traité
+            case 2:
+                //cas tunnel, cas corner deja traité
                 if(direction[0]!=0){ //horizontal tunnel
+
                     int[] wallPosition1 = {0,1};
                     wallPositions.add(wallPosition1);
                     int[] wallPosition2 ={0,-1};
@@ -94,8 +97,10 @@ class IAAssistance extends IA {
                     wallPositions.add(wallPosition2);
                 }
             case 3: //pas de tunnel, mur sur un coté, recuperer la direction a non explorer
-                wallPositions = directionsList;
-                wallPositions.removeAll(DirectionsToExplore);
+                wallPositions = directionsList; // Copy directionsList to wallPositions
+                for (int[] d : DirectionsToExplore) {
+                    wallPositions.removeIf(dir -> Arrays.equals(dir, d));
+                }
             default:        //cas ou un seul chemin = box bloqué
                 break;
         }
@@ -110,18 +115,31 @@ class IAAssistance extends IA {
                 && (lvl.estVide(freeSpace3.lig + direction[0],  freeSpace.col + direction[0]))
                 && (lvl.estVide(freeSpace3.lig + direction[0]*2,  freeSpace.col + direction[0]*2)));
     }
-    public int checkBoxNeighbors(int currentAdj, List<int[]> directionsToExplore, Node currentPos, Niveau lvl){
+
+    public int checkBoxNeighbors(int currentAdj, List<int[]> directionsToExplore, Node originalPos, Node currentPos, Niveau lvl, List<Node> Visited){
+
         for(int[] direction : directionsToExplore){//the directions to explore are the free spaces
-            List<int[]> wallPositions = getWallPosition(direction, directionsToExplore);
+            List<int[]> wallPositions = getWallPosition(direction, directionsToExplore); //PROBLEM AT SECOND ITERATION
             for(int[] wallPositionOffset : wallPositions){
-                if(lvl.estVide(currentPos.lig + direction[0], currentPos.col + direction[1]) &&
-                        (lvl.aMur(currentPos.lig + direction[0] + wallPositionOffset[0], currentPos.col + direction[1] + wallPositionOffset[1]) ||
-                                lvl.aCaisse(currentPos.lig + direction[0]+ wallPositionOffset[0], currentPos.col + direction[1]+ wallPositionOffset[1]))){
-                    List<int[]> directionRec = new ArrayList<>(Arrays.asList(direction));
-                    Node nextPos = new Node (currentPos.lig + direction[0], currentPos.col + direction[1]);
-                    currentAdj += checkBoxNeighbors(currentAdj, directionRec, nextPos, lvl);
+                int nextNodeRow = currentPos.lig + direction[0];
+                int nextNodeCol = currentPos.col + direction[1];
+
+                Node nextPos = new Node(nextNodeRow, nextNodeCol);
+                if (Visited.contains(nextPos)) {
+                    continue; // Ignorer ce nœud
+                }
+                if(lvl.estVide(nextPos.lig, nextPos.col) &&
+                        (lvl.aMur(nextPos.lig + wallPositionOffset[0], nextPos.col + wallPositionOffset[1])) ||
+                        lvl.aCaisse(nextPos.lig + wallPositionOffset[0], nextPos.col+ wallPositionOffset[1])){
+                    lvl = moveBoxCoords(lvl, currentPos, nextPos);
+                    Visited.add(nextPos);   //probleme mur quand n'est pas sur la meme direction
+                    currentAdj += checkBoxNeighbors(currentAdj, directionsToExplore, originalPos, nextPos, lvl, Visited);
+                    currentPos.lig = originalPos.lig;
+                    currentPos.col = originalPos.col;
+                    //Once recursion is done need to go back to the original position
                 }
                 else if(lvl.aMur(currentPos.lig + direction[0], currentPos.col + direction[1])){
+                    lvl = moveBoxCoords(lvl, currentPos, originalPos);
                     return 1; //1 more adjacent wall
                 }
                 else if(lvl.estVide(currentPos.lig + direction[0], currentPos.col + direction[1]) &&
@@ -130,19 +148,26 @@ class IAAssistance extends IA {
                     Node freeSpace2 = new Node(currentPos.lig + direction[0],currentPos.col + direction[1]);
                     Node freeSapce3 = new Node(currentPos.lig + direction[0] - wallPositionOffset[0],currentPos.col + direction[1] - wallPositionOffset[1]);
                     if(check3x3Space(direction, freeSpace, freeSpace2, freeSapce3, lvl)){
+                        lvl = moveBoxCoords(lvl, currentPos, originalPos);
                         return 0; // we can get the box out if only one wall on the side, if two, recheck for one wall
                     }
                 }
+                else{
+                    lvl = moveBoxCoords(lvl, currentPos, originalPos);
+                    return 0;
+                }
             }
-
         }
         return currentAdj;
     }
-    public boolean isBoxBlocked(Node box, Niveau lvl){
+    public boolean isBoxBlocked(Node orig, Node box, Niveau lvl){
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
         List<int[]> directionsList = new ArrayList<>(Arrays.asList(directions));
         int adjWall = 0;
+        lvl = moveBoxCoords(lvl, orig, box);
         List<int[]> AdjWallsList = new ArrayList<>();
+        List<Node> Visited = new ArrayList<>();
+        Visited.add(orig);
         for (int[] direction : directions) {
             int newRow = box.lig + direction[0];
             int newCol = box.col + direction[1];
@@ -152,10 +177,12 @@ class IAAssistance extends IA {
             }
         }
         if (adjWall>=3){
+            lvl = moveBoxCoords(lvl, box, orig);
             return true;    //3 walls/boxes, current box is blocked
         }
         else if(adjWall == 2){
             if((Math.abs(AdjWallsList.get(0)[0]) != Math.abs(AdjWallsList.get(1)[0])) && (Math.abs(AdjWallsList.get(0)[1]) != Math.abs(AdjWallsList.get(1)[1]))){
+                lvl = moveBoxCoords(lvl, box, orig);
                 return false; //two adjacent walls that form a corner
             }
             else{
@@ -168,25 +195,42 @@ class IAAssistance extends IA {
                     }
                     return false;
                 });
-                adjWall += checkBoxNeighbors(adjWall, DirToExplore, box, lvl);
+                adjWall += checkBoxNeighbors(adjWall, DirToExplore, box, box, lvl, Visited);
+                lvl = moveBoxCoords(lvl, box, orig);
             }
             //check neighbors
         }
         else if(adjWall == 1){
             //check neighbors
+            List<int[]> DirToExplore = directionsList;
+            DirToExplore.removeIf(dir -> {
+                for (int[] adj : AdjWallsList) {
+                    if (dir[0] == adj[0] && dir[1] == adj[1]) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            adjWall += checkBoxNeighbors(adjWall, DirToExplore, box, box, lvl, Visited);
+            lvl = moveBoxCoords(lvl, box, orig);
         }
+        if(adjWall>2){
+            lvl = moveBoxCoords(lvl, box, orig);
+            return true;
+        }
+        lvl = moveBoxCoords(lvl, box, orig);
         return false;
     }
-    public boolean isBadState(Niveau lvl){
-        List<int[]> boxes = findBoxes();
-        for (int[] box : boxes){
-            Node boxPos = new Node(box[0], box[1]);
-            if(isBoxBlocked(boxPos, lvl)){
-                return true;
-            }
-        }
-        return false;
-    }
+//    public boolean isBadState(Niveau lvl){
+//        List<int[]> boxes = findBoxes();
+//        for (int[] box : boxes){
+//            Node boxPos = new Node(box[0], box[1]);
+//            if(isBoxBlocked(boxPos, lvl)){
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
 
     public List<Node> constructPath(Node node) {
         List<Node> path = new ArrayList<>();
@@ -209,11 +253,12 @@ class IAAssistance extends IA {
         for (int[] direction : directions) {
             int newRow = node.lig + direction[0];
             int newCol = node.col + direction[1];
+            Node n = new Node(newRow, newCol);
 
-            if (lvl.estOccupable(newRow, newCol) || lvl.aPousseur(newRow,newCol)) {
-                Node n = new Node(newRow, newCol);
+            if ((!lvl.aMur(newRow, newCol) || !lvl.aCaisse(newRow, newCol)) && !isBoxBlocked(node, n, lvl)) {
                 neighbors.add(n);
             }
+            lvl = moveBoxCoords(lvl, n, node);
         }
         return neighbors;
     }

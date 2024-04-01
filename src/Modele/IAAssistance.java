@@ -125,14 +125,22 @@ class IAAssistance extends IA {
                         Visited.add(nextPos);
                     }
                     exploreDirections(directionsToExplore, originalPos, nextPos, Visited);
-                } else if (lvl.aMur(currentPos.lig + direction[0], currentPos.col + direction[1])) {
+                } else if (lvl.aMur(nextPos.lig, nextPos.col)) {
                     lvl = moveBoxCoords(currentPos, originalPos);
-                    if (Visited.stream().noneMatch(node -> node.contentEquals(nextPos))) {
-                        Visited.add(nextPos);
-                    }
                     currentPos.lig = originalPos.lig;
                     currentPos.col = originalPos.col;
                     currentAdj++;
+                } else if(lvl.aBut(currentPos.lig + direction[0], currentPos.col + direction[1])){
+                    while(!currentPos.contentEquals(originalPos)){
+                        currentPos = Visited.getLast();
+                        Node finalCurrentPos = currentPos;
+                        if (Visited.stream().anyMatch(node -> node.contentEquals(finalCurrentPos))) {
+                            Visited.remove(currentPos);
+                        }
+                    }
+                    lvl = moveBoxCoords(currentPos, originalPos);
+                    currentPos.lig = originalPos.lig;
+                    currentPos.col = originalPos.col;
                 }
             }
         }
@@ -188,6 +196,7 @@ class IAAssistance extends IA {
         if (Visited.stream().noneMatch(node -> node.contentEquals(box))) {
             Visited.add(box);
         }
+
         if (adjWall>=3){
             lvl = moveBoxCoords(box, orig);
             return true;    //3 walls/boxes, current box is blocked
@@ -250,7 +259,7 @@ class IAAssistance extends IA {
             int newRow = orig.lig + direction[0];
             int newCol = orig.col + direction[1];
             Node n = new Node(newRow, newCol);
-            if (Visited.stream().anyMatch(node -> node.contentEquals(n))) {
+            if (Visited.stream().anyMatch(node -> node.contentEquals(n))) { //reviser, probleme si but sur le mur
                 continue; // Ignorer ce nœud
             }
             if(lvl.aBut(newRow, newCol) || ((!lvl.aMur(newRow, newCol) || (!lvl.aCaisse(newRow, newCol))) && !isBoxBlocked(orig, n, Visited))) {

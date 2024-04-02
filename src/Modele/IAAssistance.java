@@ -1,4 +1,4 @@
-package Modele;
+
 /*
  * Sokoban - Encore une nouvelle version (à but pédagogique) du célèbre jeu
  * Copyright (C) 2018 Guillaume Huard
@@ -20,12 +20,12 @@ package Modele;
  *
  * Contact:
  *          Guillaume.Huard@imag.fr
- *          Laboratoire LIG
+ *          Laboratoire ligne
  *          700 avenue centrale
  *          Domaine universitaire
  *          38401 Saint Martin d'Hères
  */
-
+package Modele;
 import Global.Configuration;
 import Structures.Sequence;
 
@@ -36,456 +36,333 @@ class IAAssistance extends IA {
 
     public IAAssistance() {}
 
-    public static class Node{
-        int lig, col;
-        Node parent;
-        int f, g, h;
-        public Node(int lig, int col){
-            this.lig = lig;
-            this.col = col;
+    private static class Noeud {
+        private Noeud pere;
+        private int ligne;
+        private int colonne;
+        private int g; // Coût du chemin depuis le début jusqu'à ce nœud
+        private int h; // Heuristique : estimation du coût du meilleur chemin entre ce nœud et le but
+        private int f; // Coût total : g + h
+
+        public Noeud(Noeud pere, int lignene, int colonneonne) {
+            this.pere = pere;
+            this.ligne = lignene;
+            this.colonne = colonneonne;
+            this.g = 0;
+            this.h = 0;
+            this.f = 0;
         }
-        public boolean contentEquals(Node other) {
-            return this.lig == other.lig && this.col == other.col;
+
+        public Noeud getPere() {
+            return pere;
+        }
+
+        public void setPere(Noeud pere) {
+            this.pere = pere;
+        }
+
+        public int getLigne() {
+            return ligne;
+        }
+
+        public int getColonne() {
+            return colonne;
+        }
+
+        public int getG() {
+            return g;
+        }
+
+        public void setG(int g) {
+            this.g = g;
+        }
+
+        public int getH() {
+            return h;
+        }
+
+        public void setH(int h) {
+            this.h = h;
+        }
+
+        public int getF() {
+            return f;
+        }
+
+        public void setF(int f) {
+            this.f = f;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            Noeud noeud = (Noeud) obj;
+            return ligne == noeud.ligne && colonne == noeud.colonne;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ligne, colonne);
         }
     }
 
-    public List<int[]> findBoxes(){
-        List<int[]> l = new ArrayList<>();
-        for(int j = 0; j<niveau.c; j++)
-            for(int i = 0; i< niveau.l; i++){
-                if(niveau.aCaisse(i, j)){
-                    int[] el = new int[2]; // Créer un nouveau tableau pour chaque boîte
-                    el[0] = i;
-                    el[1] = j;
-                    l.add(el);  // Ajouter à la liste
-                }
+    // Implémentation de l'algorithme A*
+    private List<Noeud> trouverChemin(Niveau niveau, Noeud depart, Noeud arrivee) {
+        // Initialisation de la liste ouverte et de la liste fermée
+        PriorityQueue<Noeud> listeOuverte = new PriorityQueue<>(Comparator.comparingInt(Noeud::getF));
+        HashSet<Noeud> listeFermee = new HashSet<>();
+
+        // Ajout du nœud de départ à la liste ouverte
+        listeOuverte.add(depart);
+
+        while (!listeOuverte.isEmpty()) {
+            // Récupération du nœud avec le coût le plus faible depuis la liste ouverte
+            Noeud courant = listeOuverte.poll();
+
+            // Si le nœud courant est le nœud d'arrivée, le chemin est trouvé
+            if (courant.equals(arrivee)) {
+                // Retourner le chemin reconstruit depuis le nœud d'arrivée jusqu'au nœud de départ
+                return reconstruireChemin(courant);
             }
-        return l;
-    }
 
-    public List<int[]> findGoals(){
-        List<int[]> l = new ArrayList<>();
-        for(int j = 0; j<lvl.c; j++)
-            for(int i = 0; i< lvl.l; i++){
-                if(lvl.aBut(i, j)){
-                    int[] el = new int[2]; // Créer un nouveau tableau pour chaque boîte
-                    el[0] = i;
-                    el[1] = j;
-                    l.add(el);  // Ajouter à la liste
-                }
-            }
-        return l;
-    }
+            // Ajouter le nœud courant à la liste fermée
+            listeFermee.add(courant);
 
-    public boolean check3x3Space(int[] direction, Node freeSpace, Node freeSpace2, Node freeSpace3){
-        return ((lvl.estVide(freeSpace2.lig + direction[0],  freeSpace2.col + direction[0]))
-                && (lvl.estVide(freeSpace2.lig + direction[0]*2,  freeSpace2.col + direction[0]*2))
-                && (lvl.estVide(freeSpace.lig + direction[0],  freeSpace.col + direction[0]))
-                && (lvl.estVide(freeSpace.lig + direction[0]*2,  freeSpace.col + direction[0]*2))
-                && (lvl.estVide(freeSpace3.lig + direction[0],  freeSpace.col + direction[0]))
-                && (lvl.estVide(freeSpace3.lig + direction[0]*2,  freeSpace.col + direction[0]*2)));
-    }
-
-    public List<int[]> getDirectionsNotVisited(List<int[]> directionsToExplore, List<Node> visited, Node currentPos) {
-        List<int[]> newDir = new ArrayList<>(directionsToExplore); // Créer une nouvelle liste avec les mêmes éléments que directionsToExplore
-        for (int[] dir : directionsToExplore) {
-            Node n = new Node(currentPos.lig + dir[0], currentPos.col + dir[1]);
-            if (visited.stream().anyMatch(node -> node.contentEquals(n))) {
-                newDir.remove(dir);
-            }
-        }
-        return newDir;
-    }
-
-    private int currentAdj; // Déclarer currentAdj comme variable globale
-
-    public int checkBoxNeighbors(int currentAdjWalls, List<int[]> directionsToExplore, Node originalPos, Node currentPos, List<Node> Visited) {
-        currentAdj = currentAdjWalls; // Réinitialiser currentAdj avant chaque appel de la fonction
-        exploreDirections(directionsToExplore, originalPos, currentPos, Visited);
-        return currentAdj;
-    }
-
-    private void exploreDirections(List<int[]> directionsToExplore, Node originalPos, Node currentPos, List<Node> Visited) {
-        for (int[] direction : directionsToExplore) {
-            List<int[]> wallPositions = getAdjWallsList(currentPos);
-            for (int[] wallPositionOffset : wallPositions) {
-                int nextNodeRow = currentPos.lig + direction[0];
-                int nextNodeCol = currentPos.col + direction[1];
-
-                Node nextPos = new Node(nextNodeRow, nextNodeCol);
-                if (Visited.stream().anyMatch(node -> node.contentEquals(nextPos))) {
-                    continue; // Ignorer ce nœud
+            // Explorer les nœuds voisins
+            for (Noeud voisin : voisinsPossibles(niveau, courant)) {
+                if (listeFermee.contains(voisin)) {
+                    continue; // Ignorez les nœuds déjà explorés
                 }
 
-                if (lvl.estVide(nextPos.lig, nextPos.col) &&
-                        (lvl.aMur(nextPos.lig + wallPositionOffset[0], nextPos.col + wallPositionOffset[1]) ||
-                                lvl.aCaisse(nextPos.lig + wallPositionOffset[0], nextPos.col + wallPositionOffset[1]))) {
-                    lvl = moveBoxCoords(currentPos, nextPos);
-                    if (Visited.stream().noneMatch(node -> node.contentEquals(nextPos))) {
-                        Visited.add(nextPos);
+                // Calculer le coût G du voisin
+                int nouveauG = courant.getG() + coutDeplacement(courant, voisin);
+
+                if (nouveauG < voisin.getG() || !listeOuverte.contains(voisin)) {
+                    // Mettre à jour le nœud voisin
+                    voisin.setG(nouveauG);
+                    voisin.setH(heuristique(voisin, arrivee));
+                    voisin.setF(voisin.getG() + voisin.getH());
+                    voisin.setPere(courant);
+
+                    // Ajouter le voisin à la liste ouverte s'il n'y est pas déjà
+                    if (!listeOuverte.contains(voisin)) {
+                        listeOuverte.add(voisin);
                     }
-                    exploreDirections(directionsToExplore, originalPos, nextPos, Visited);
-                } else if (lvl.aMur(nextPos.lig, nextPos.col)) {
-                    lvl = moveBoxCoords(currentPos, originalPos);
-                    currentPos.lig = originalPos.lig;
-                    currentPos.col = originalPos.col;
-                    currentAdj++;
-                } else if(lvl.aBut(currentPos.lig + direction[0], currentPos.col + direction[1])){
-                    while(!currentPos.contentEquals(originalPos)){
-                        currentPos = Visited.getLast();
-                        Node finalCurrentPos = currentPos;
-                        if (Visited.stream().anyMatch(node -> node.contentEquals(finalCurrentPos))) {
-                            Visited.remove(currentPos);
-                        }
-                    }
-                    lvl = moveBoxCoords(currentPos, originalPos);
-                    currentPos.lig = originalPos.lig;
-                    currentPos.col = originalPos.col;
                 }
             }
         }
-    }
-
-    public List<int[]> getAdjWallsList(Node box){
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-        List<int[]> AdjWallsList = new ArrayList<>();
-        for (int[] direction : directions) {
-            int newRow = box.lig + direction[0];
-            int newCol = box.col + direction[1];
-            if(lvl.aMur(newRow,newCol) || lvl.aCaisse(newRow,newCol)){
-                AdjWallsList.add(direction);
-            }
-        }
-        return AdjWallsList;
-    }
-    public boolean playerCanPushBox(Node box, int[] direction) {
-        // Nouvelle position de la boîte après le déplacement
-        int newBoxRow = box.lig - direction[0];
-        int newBoxCol = box.col - direction[1];
-        if(!lvl.estOccupable(newBoxRow, newBoxCol)){
-            return false;
-        }
-        else{
-            Node player = new Node(lvl.pousseurL, lvl.pousseurC);
-            Node boxSide = new Node(newBoxRow, newBoxCol);
-            List<Node> playerPath = findPathBetweenBoxAndPlayer(player, boxSide);
-            return !playerPath.isEmpty();//existe path entre player et espace
-        }
-    }
-    public List<int[]> getDirectionsToExplore(List<int[]> directionsList, Node box, List<int[]> AdjWallsList){
-        directionsList.removeIf(dir -> {
-            for (int[] adj : AdjWallsList) {
-                if (dir[0] == adj[0] && dir[1] == adj[1]) {
-                    return true;
-                }
-            }
-            return false;
-        });
-        directionsList.removeIf(dir -> !playerCanPushBox(box, dir));
-        return directionsList;
-    }
-    public boolean isBoxBlocked(Node orig, Node box, List<Node> Visited){
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
-        List<int[]> directionsList = new ArrayList<>(Arrays.asList(directions));
-        lvl = moveBoxCoords(orig, box);
-        List<int[]> AdjWallsList = getAdjWallsList(box);
-        int adjWall = AdjWallsList.size();
-        if (Visited.stream().noneMatch(node -> node.contentEquals(orig))) {
-            Visited.add(orig);
-        }
-        if (Visited.stream().noneMatch(node -> node.contentEquals(box))) {
-            Visited.add(box);
-        }
-
-        if (adjWall>=3){
-            lvl = moveBoxCoords(box, orig);
-            return true;    //3 walls/boxes, current box is blocked
-        }
-        else if(adjWall == 1){
-            //check neighbors
-            List<int[]> DirToExplore = getDirectionsToExplore(directionsList, box, AdjWallsList);
-            adjWall = checkBoxNeighbors(adjWall, DirToExplore, box, box, Visited);
-            lvl = moveBoxCoords(box, orig);
-        }
-        else if(adjWall == 2){
-            if((Math.abs(AdjWallsList.get(0)[0]) != Math.abs(AdjWallsList.get(1)[0])) && (Math.abs(AdjWallsList.get(0)[1]) != Math.abs(AdjWallsList.get(1)[1]))){
-                lvl = moveBoxCoords(box, orig);
-                return true; //two adjacent walls that form a corner, box blocked
-            }
-            else{
-                List<int[]> DirToExplore = getDirectionsToExplore(directionsList, box, AdjWallsList);
-                adjWall += checkBoxNeighbors(adjWall, DirToExplore, box, box, Visited);
-                lvl = moveBoxCoords(box, orig);
-            }
-            //check neighbors
-        }
-        if(adjWall>2){
-            lvl = moveBoxCoords(box, orig);
-            return true;
-        }
-        lvl = moveBoxCoords(box, orig);
-        return false;
-    }
-//    public boolean isBadState(){
-//        List<int[]> boxes = findBoxes();
-//        for (int[] box : boxes){
-//            Node boxPos = new Node(box[0], box[1]);
-//            if(isBoxBlocked(boxPos)){
-//                return true;
-//            }
-//        }
-//        return false;
-//    }
-
-    public List<Node> constructPath(Node node) {
-        List<Node> path = new ArrayList<>();
-        while (node != null) {
-            path.add(node);
-            node = node.parent;
-        }
-        Collections.reverse(path);
-        return path;
-    }
-    public int heuristic(Node a, Node b) {
-        // Manhattan distance heuristic
-        return Math.abs(a.lig - b.lig) + Math.abs(a.col - b.col);
-    }
-
-    public List<Node> getNeighbors(Node orig, List<Node> Visited) {
-        List<Node> neighbors = new ArrayList<>();
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
-
-        for (int[] direction : directions) {
-            int newRow = orig.lig + direction[0];
-            int newCol = orig.col + direction[1];
-            Node n = new Node(newRow, newCol);
-            if (Visited.stream().anyMatch(node -> node.contentEquals(n))) { //reviser, probleme si but sur le mur
-                continue; // Ignorer ce nœud
-            }
-            if(lvl.aBut(newRow, newCol) || ((!lvl.aMur(newRow, newCol) || (!lvl.aCaisse(newRow, newCol))) && !isBoxBlocked(orig, n, Visited))) {
-                neighbors.add(n);
-            }
-//            lvl = moveBoxCoords(n, orig);
-        }
-        return neighbors;
-    }
-    public List<Node> getPlayerNeighbors(Node node) {
-        List<Node> neighbors = new ArrayList<>();
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Déplacements possibles: haut, bas, gauche, droite
-
-        for (int[] direction : directions) {
-            int newRow = node.lig + direction[0];
-            int newCol = node.col + direction[1];
-
-            if (lvl.estOccupable(newRow, newCol)) {
-                if(lvl.aCaisse(newRow, newCol)){
-                    System.out.println("Caisse");
-                }
-                Node n = new Node(newRow, newCol);
-                neighbors.add(n);
-            }
-        }
-        return neighbors;
-    }
-
-
-    public List<Node> findPathBetweenBoxAndGoal(Node box, Node goal){
-        List<Node> openList = new ArrayList<>();
-        List<Node> closedList = new ArrayList<>();
-        List<Node> Visited = new ArrayList<>();
-        openList.add(box);
-        while(!openList.isEmpty()){
-            Node curr = openList.get(0);
-            for(Node n : openList){
-                if (n.f < curr.f){
-                    curr = n;
-                }
-            }
-            openList.remove(curr);
-            closedList.add(curr);
-
-            if (curr.lig == goal.lig && curr.col == goal.col) {
-                return constructPath(curr);
-            }
-            List<Node> neighbors = getNeighbors(curr, Visited);
-            lvl = niveau.clone();
-            for(Node neighbor : neighbors){
-                if(closedList.contains(neighbor)){
-                    continue;
-                }
-
-                int testG = curr.g + 1; //cout de se deplacer sur un voisin
-                neighbor.parent = curr;
-                neighbor.g = testG;
-                neighbor.h = heuristic(neighbor, goal);
-                neighbor.f = neighbor.g + neighbor.h;
-
-                if(!openList.contains(neighbor)){
-                    openList.add(neighbor);
-                }
-            }
-        }
-        return null;
-    }
-    public List<Node> findPathBetweenBoxAndPlayer(Node playerPos, Node boxSide) {
-        List<Node> openList = new ArrayList<>();
-        List<Node> closedList = new ArrayList<>();
-        openList.add(playerPos);
-        while(!openList.isEmpty()){
-            Node curr = openList.get(0);
-            for(Node n : openList){
-                if (n.f < curr.f){
-                    curr = n;
-                }
-            }
-            openList.remove(curr);
-            closedList.add(curr);
-
-            if (curr.lig == boxSide.lig && curr.col == boxSide.col) {
-                return constructPath(curr);
-            }
-            List<Node> neighbors = getPlayerNeighbors(curr);
-            for(Node neighbor : neighbors){
-                if(closedList.contains(neighbor)){
-                    continue;
-                }
-
-                int testG = curr.g + 1; //cout de se deplacer sur un voisin
-                neighbor.parent = curr;
-                neighbor.g = testG;
-                neighbor.h = heuristic(neighbor, boxSide);
-                neighbor.f = neighbor.g + neighbor.h;
-
-                if(!openList.contains(neighbor)){
-                    openList.add(neighbor);
-                }
-            }
-        }
+        // Aucun chemin trouvé
         return null;
     }
 
-    public int[] getDirection(Node m, Node d){
-        int[] dir = new int[2];
-        dir[0] = d.lig - m.lig;
-        dir[1] = d.col - m.col;
+    // Méthode pour reconstruire le chemin à partir du nœud d'arrivée
+    private List<Noeud> reconstruireChemin(Noeud arrivee) {
+        List<Noeud> chemin = new ArrayList<>();
+        Noeud courant = arrivee;
+        while (courant != null) {
+            chemin.add(courant);
+            courant = courant.getPere();
+        }
+        Collections.reverse(chemin); // Inverser le chemin pour avoir le bon ordre
+        return chemin;
+    }
+
+    // Autres méthodes nécessaires à l'algorithme A*
+    private List<int[]> positonsMur(int l, int c){
+        int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
+        int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
+        List<int[]> murAdjacents = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            int voisinLig = l + dLig[i];
+            int voisinCol = l + dCol[i];
+            if(niveau.aMur(voisinLig, voisinCol)){
+                int[] posMur = new int[2];
+                posMur[0] = voisinLig;
+                posMur[1] = voisinCol;
+
+            }
+        }
+        return murAdjacents;
+    }
+    public int[] getDirection(int l, int c, int nl, int nc){
+        int[] direction = new int[2];
+        direction[0] = nl - l;
+        direction[1] = nc - c;
+        return direction;
+    }
+    public int[] directionToExplore(int[] mur, int l, int c){
+        int[] dir = getDirection(l, c, mur[0], mur[1]);
+        int temp = dir[0];
+        dir[0] = Math.abs(dir[1]);  //selon la position du mur on explore dans
+        dir[1] = Math.abs(temp);    //la direction perpendiculaire
         return dir;
     }
 
-    public boolean playerAdjToBox(Node player, Node box) {
-        // Coordonnées du pousseur
-        int playerRow = player.lig;
-        int playerCol = player.col;
-        // Coordonnées de la caisse
-        int boxRow = box.lig;
-        int boxCol = box.col;
-        // Vérification des cases adjacentes
-        // Le pousseur est adjacent à la caisse
-        return (Math.abs(playerRow - boxRow) == 1 && playerCol == boxCol) ||
-                (Math.abs(playerCol - boxCol) == 1 && playerRow == boxRow);
-        // Le pousseur n'est pas adjacent à la caisse
-    }
-    public Niveau moveBoxCoords(Node boxOrigin, Node boxDest){
-        lvl.videCase(boxOrigin.lig, boxOrigin.col);
-        lvl.ajouteCaisse(boxDest.lig, boxDest.col);
-        return lvl;
-    }
-    public Sequence<Coup> createSequenceDeCoups(List<Node> cheminJoueur, List<Node> cheminBoite) {
-        Sequence<Coup> sequenceDeCoups = Configuration.nouvelleSequence();
-
-        // Obtenez les mouvements du joueur
-        for (int i = 0; i < cheminJoueur.size() - 1; i++) {
-            Node currentNode = cheminJoueur.get(i);
-            Node nextNode = cheminJoueur.get(i + 1);
-
-            // Créez un nouveau coup pour le mouvement du joueur
-            Coup coup = new Coup();
-            coup.deplacementPousseur(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
-            lvl.pousseurL = nextNode.lig;
-            lvl.pousseurC = nextNode.col;
-            assert sequenceDeCoups != null;
-            sequenceDeCoups.insereQueue(coup);
-        }
-
-        // Obtenez les mouvements du joueur et de la boîte
-        for (int i = 0; i < cheminBoite.size() - 1; i++) {
-            Node currentNode = cheminBoite.get(i);
-            Node nextNode = cheminBoite.get(i + 1);
-            Node playerPos = new Node(lvl.pousseurL, lvl.pousseurC);
-
-            // Obtenez les directions pour les mouvements du joueur et de la boîte
-            int[] directionPousseur = getDirection(playerPos, currentNode);
-            int[] directionCaisse = getDirection(currentNode, nextNode);
-
-            // Vérifiez si le joueur peut pousser la boîte tout en se déplaçant
-            if ((directionCaisse[0] == directionPousseur[0] && directionCaisse[1] == directionPousseur[1]) && playerAdjToBox(playerPos,currentNode)) {
-                // Créez un nouveau coup pour le mouvement du joueur et de la boîte
-                Coup coup = new Coup();
-                coup.deplacementCaisse(currentNode.lig, currentNode.col, nextNode.lig, nextNode.col);
-                // corriger deplacement playerPos->currentNode
-                lvl = moveBoxCoords(currentNode, nextNode);
-                coup.deplacementPousseur(playerPos.lig, playerPos.col, currentNode.lig, currentNode.col);
-                assert sequenceDeCoups != null;
-                sequenceDeCoups.insereQueue(coup);
-                lvl.pousseurL = currentNode.lig;
-                lvl.pousseurC = currentNode.col;
-            } else {
-                // Sinon, créez simplement un mouvement pour le joueur
-                Node boxPosToPush = new Node(currentNode.lig - directionCaisse[0], currentNode.col - directionCaisse[1]);
-                List<Node> replacement = findPathBetweenBoxAndPlayer(playerPos, boxPosToPush);
-                for (int j = 0; j < replacement.size() - 1; j++) {
-                    Node curr = replacement.get(j);
-                    Node next = replacement.get(j + 1);
-
-                    // Créez un nouveau coup pour le mouvement du joueur
-                    Coup coup = new Coup();
-                    coup.deplacementPousseur(curr.lig, curr.col, next.lig, next.col);
-                    assert sequenceDeCoups != null;
-                    sequenceDeCoups.insereQueue(coup);
-                    lvl.pousseurL = next.lig;
-                    lvl.pousseurC = next.col;
-                    //#TODO once done need to recalculate player path to push the box ?
-
-                }
-                i--;
+    //verifie s'il y a un mur a la fin du chemin
+    public boolean murFinDuChemin(int[] dir, int l, int c){
+        int i = l;
+        int j = c;
+        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
+            if(niveau.aMur(i,j) || niveau.aCaisse(i,j)) {
+                return true;
             }
-
+            i = i + dir[0];
+            j = j + dir[1];
         }
+        return false;
+    }
+
+    public boolean butFinDuChemin(int[] dir, int l, int c){
+        int i = l;
+        int j = c;
+        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
+            if(niveau.aBut(i,j)) {
+                return true;
+            }
+            i = i + dir[0];
+            j = j + dir[1];
+        }
+        return false;
+    }
+    //verifie s'il existe une sortie a la fin du chemin
+    public boolean sortieFinDuChemin(int[] dir, int l, int c, int[] mur){
+        int i = l;
+        int j = c;
+        int[] murOffset = getDirection(l, c, mur[0], mur[1]);
+        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
+            if(niveau.estVide(i + murOffset[0],j + murOffset[1])) {
+                return true;
+            }
+            i = i + dir[0];
+            j = j + dir[1];
+        }
+        return true;
+    }
+    //sortie du tunnel
+    public boolean sortieFinDuTunnel(int[] dir, int l, int c, List<int[]> murAdjacents){
+        int i = l;
+        int j = c;
+        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
+            if(niveau.estVide(i,j)) {
+                return true;
+            }
+            i = i + dir[0];
+            j = j + dir[1];
+        }
+        return true;
+    }
+    public boolean existeSortie(int l, int c, int[] dir, List<int[]> murAdjacents){
+        int[] dir2 = new int[2];
+        dir2[0] = -dir[0];
+        dir2[1] = -dir[1];
+        if(murFinDuChemin(dir, l, c) && murFinDuChemin(dir2, l, c)){
+            return false;   //cas mur en U, ou tunnel fermé
+        }else if(butFinDuChemin(dir, l, c) || butFinDuChemin(dir2, l, c)) {
+            return true;
+        } else{
+            if(murAdjacents.size()==2){
+                if (sortieFinDuTunnel(dir, l, c, murAdjacents) || sortieFinDuTunnel(dir2, l, c, murAdjacents)) {
+                    return true;
+                }
+            }
+            else if (murAdjacents.size()==1) {
+                if (sortieFinDuChemin(dir, l, c, murAdjacents.get(0)) || sortieFinDuChemin(dir2, l, c, murAdjacents.get(0))) {
+                    return true;
+                }
+            }
+        }
+
+        return true;
+    }
+    private boolean peutAtteindreBut(Niveau niveau, int l, int c) {
+        // À implémenter : Vérifiez si une caisse à la position donnée peut atteindre un but
+        List<int[]> murAdjacents = positonsMur(l,c);
+        int[] dir = directionToExplore(murAdjacents.get(0), l, c);;
+        boolean gaucheLibre = !niveau.aMur(l, c-1) && !niveau.aCaisse(l, c-1) && !niveau.aBut(l, c-1);
+        boolean droiteLibre = !niveau.aMur(l, c+1) && !niveau.aCaisse(l, c+1) && !niveau.aBut(l, c+1);
+        boolean hautLibre = !niveau.aMur(l-1, c) && !niveau.aCaisse(l-1, c) && !niveau.aBut(l-1, c);
+        boolean basLibre = !niveau.aMur(l+1, c) && !niveau.aCaisse(l+1, c) && !niveau.aBut(l+1, c);
+
+        if(murAdjacents.size()>=3){
+            return false;   //cas no exit
+        } else if (murAdjacents.size()==2) {
+            if((!gaucheLibre || !droiteLibre) && (!hautLibre || !basLibre)){
+                return false; //cas coin
+            } else if ((!gaucheLibre && !basLibre) || (!hautLibre && !basLibre)) {
+                //cas tunnel explorer a gauche et droite
+                return existeSortie(l,c,dir, murAdjacents);
+
+            }
+        } else if (murAdjacents.size() == 1) {
+            //cas mur, explorer a gauche et droite
+            return existeSortie(l, c, dir, murAdjacents);
+        }
+        return true;
+    }
+    // Méthode pour obtenir les voisins possibles d'un nœud
+    private List<Noeud> voisinsPossibles(Niveau niveau, Noeud noeud) {
+        List<Noeud> voisins = new ArrayList<>();
+        int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
+        int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
+
+        for (int i = 0; i < 4; i++) {
+            int voisinLig = noeud.getLigne() + dLig[i];
+            int voisinCol = noeud.getColonne() + dCol[i];
+
+            // Vérifiez si le voisin est dans les limites du niveau et s'il est accessible
+            if (voisinLig >= 0 && voisinLig < niveau.lignes() && voisinCol >= 0 && voisinCol < niveau.colonnes()
+                    && niveau.estOccupable(voisinLig, voisinCol) || niveau.aPousseur(voisinLig, voisinCol)) {
+                if (peutAtteindreBut(niveau, voisinLig, voisinCol)) {
+                    voisins.add(new Noeud(noeud, voisinLig, voisinCol));
+                }
+            }
+        }
+        return voisins;
+    }
+
+    // Méthode pour calculer le coût de déplacement entre deux nœuds
+    private int coutDeplacement(Noeud depart, Noeud arrivee) {
+        // À implémenter : Retourner le coût de déplacement entre les deux nœuds donnés
+        return 1;
+    }
+
+    private int distanceManhattan(Noeud depart, Noeud arrivee) {
+        return Math.abs(arrivee.getLigne() - depart.getLigne()) + Math.abs(arrivee.getColonne() - depart.getColonne());
+    }
+    private int nombreCaissesMalPlacees(Noeud depart) {
+        int nombreCaissesMalPlacees = 0;
+        // Parcourez toutes les caisses et vérifiez si elles sont mal placées
+        for (int i = 0; i < niveau.lignes(); i++) {
+            for (int j = 0; j < niveau.colonnes(); j++) {
+                if (niveau.aCaisse(i, j) && !niveau.aBut(i, j)) {
+                    nombreCaissesMalPlacees++;
+                }
+            }
+        }
+        return nombreCaissesMalPlacees;
+    }
+    // Méthode pour calculer l'heuristique entre deux nœuds
+    private int heuristique(Noeud depart, Noeud arrivee) {
+        int distanceManhattan = distanceManhattan(depart, arrivee);
+        int nombreCaissesMalPlacees = nombreCaissesMalPlacees(depart);
+
+        // Pondération des deux heuristiques
+        int poidsDistanceManhattan = 1;
+        int poidsNombreCaissesMalPlacees = 2;
+        return poidsDistanceManhattan * distanceManhattan + poidsNombreCaissesMalPlacees * nombreCaissesMalPlacees;
+
+    }
+    public Sequence<Coup> createSequenceDeCoups(List<Noeud> cheminJoueur, List<Noeud> cheminBoite) {
+        Sequence<Coup> sequenceDeCoups = Configuration.nouvelleSequence();
         return sequenceDeCoups;
     }
     @Override
     public Sequence<Coup> joue() {
         lvl = niveau.clone();
         Sequence<Coup> resultat = Configuration.nouvelleSequence();
-        //#TODO Convert list node to sequence des coups
-        int pousseurL = niveau.lignePousseur();
-        int pousseurC = niveau.colonnePousseur();
 
-        List<int[]> boxes = findBoxes();
-        List<int[]> goals = findGoals();
-
-        Node box = new Node(boxes.get(0)[0], boxes.get(0)[1]);
-//        System.out.println("Box " + box.lig + "," + box.col);
-        Node goal = new Node(goals.get(0)[0], goals.get(0)[1]);
-//        System.out.println("Goal " + goal.lig + "," + goal.col);
-        Node player = new Node(pousseurL, pousseurC);
-//        System.out.println("Player " + player.lig + "," + player.col);
-//
-        List<Node> boxPath = findPathBetweenBoxAndGoal(box, goal);
-        int[] direction = getDirection(boxPath.get(0), boxPath.get(1));
-        Node boxSide = new Node(box.lig - direction[0], box.col - direction[1]);
-//        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
-        List<Node> playerPath = findPathBetweenBoxAndPlayer(player, boxSide);
-//
-//        System.out.println("boxpath");
-//        for( Node n : boxPath){
-//            System.out.println("(" + n.lig + " , " + n.col + ")");
-//        }
-//        System.out.println("playerpath");
-//        Collections.reverse(playerPath);
-//        for( Node n : playerPath){
-//            System.out.println("(" + n.lig + " , " + n.col + ")");
-//        }
-        resultat = createSequenceDeCoups(playerPath, boxPath);
+        //resultat = createSequenceDeCoups(playerPath, boxPath);
         return resultat;
 
     }

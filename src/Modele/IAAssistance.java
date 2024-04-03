@@ -116,7 +116,7 @@ class IAAssistance extends IA {
     }
 
     // Implémentation de l'algorithme A*
-    private List<Noeud> trouverChemin(Niveau niveau, Noeud depart, Noeud arrivee) {
+    private List<Noeud> trouverChemin(Noeud depart, Noeud arrivee) {
         // Initialisation de la liste ouverte et de la liste fermée
         PriorityQueue<Noeud> listeOuverte = new PriorityQueue<>(Comparator.comparingInt(Noeud::getF));
         HashSet<Noeud> listeFermee = new HashSet<>();
@@ -138,7 +138,8 @@ class IAAssistance extends IA {
             listeFermee.add(courant);
 
             // Explorer les nœuds voisins
-            for (Noeud voisin : voisinsPossibles(niveau, courant)) {
+            for (Noeud voisin : voisinsPossibles(courant)) {
+                lvl = niveau.clone();
                 if (listeFermee.contains(voisin)) {
                     continue; // Ignorez les nœuds déjà explorés
                 }
@@ -163,7 +164,7 @@ class IAAssistance extends IA {
         // Aucun chemin trouvé
         return null;
     }
-    private List<Noeud> trouverCheminJoueur(Niveau niveau, Noeud depart, Noeud arrivee) {
+    private List<Noeud> trouverCheminJoueur(Noeud depart, Noeud arrivee) {
         // Initialisation de la liste ouverte et de la liste fermée
         PriorityQueue<Noeud> listeOuverte = new PriorityQueue<>(Comparator.comparingInt(Noeud::getF));
         HashSet<Noeud> listeFermee = new HashSet<>();
@@ -185,7 +186,7 @@ class IAAssistance extends IA {
             listeFermee.add(courant);
 
             // Explorer les nœuds voisins
-            for (Noeud voisin : voisinsPossiblesJoueur(niveau, courant)) {
+            for (Noeud voisin : voisinsPossiblesJoueur(courant)) {
                 if (listeFermee.contains(voisin)) {
                     continue; // Ignorez les nœuds déjà explorés
                 }
@@ -231,7 +232,7 @@ class IAAssistance extends IA {
         for (int i = 0; i < 4; i++) {
             int voisinLig = l + dLig[i];
             int voisinCol = c + dCol[i];
-            if(niveau.aMur(voisinLig, voisinCol)){
+            if(lvl.aMur(voisinLig, voisinCol)){
                 int[] posMur = new int[2];
                 posMur[0] = voisinLig;
                 posMur[1] = voisinCol;
@@ -259,8 +260,8 @@ class IAAssistance extends IA {
     public boolean murFinDuChemin(int[] dir, int l, int c){
         int i = l;
         int j = c;
-        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
-            if(niveau.aMur(i,j) || niveau.aCaisse(i,j)) {
+        while ((0 < i && i < lvl.lignes()) && (0 < j && j < lvl.colonnes())) {
+            if(lvl.aMur(i,j) || lvl.aCaisse(i,j)) {
                 return true;
             }
             i = i + dir[0];
@@ -272,8 +273,8 @@ class IAAssistance extends IA {
     public boolean butFinDuChemin(int[] dir, int l, int c){
         int i = l;
         int j = c;
-        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
-            if(niveau.aBut(i,j)) {
+        while ((0 < i && i < lvl.lignes()) && (0 < j && j < lvl.colonnes())) {
+            if(lvl.aBut(i,j)) {
                 return true;
             }
             i = i + dir[0];
@@ -286,74 +287,110 @@ class IAAssistance extends IA {
         int i = l;
         int j = c;
         int[] murOffset = getDirection(l, c, mur[0], mur[1]);
-        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
-            if(niveau.estVide(i + murOffset[0],j + murOffset[1]) && niveau.estVide(i + dir[0] + murOffset[0],j + dir[1] + murOffset[1])) {
-                if(niveau.estVide(i + dir[0], j + dir[1])) {
-                    if (niveau.estVide(i - murOffset[0], j - murOffset[1]) && niveau.estVide(i + dir[0] - murOffset[0], j + dir[1] - murOffset[1])){
+        while ((0 < i && i < lvl.lignes()) && (0 < j && j < lvl.colonnes())) {
+            if(lvl.estVide(i + murOffset[0],j + murOffset[1]) && lvl.estVide(i + dir[0] + murOffset[0],j + dir[1] + murOffset[1])) {
+                if(lvl.estVide(i + dir[0], j + dir[1])) {
+                    if (lvl.estVide(i - murOffset[0], j - murOffset[1]) && lvl.estVide(i + dir[0] - murOffset[0], j + dir[1] - murOffset[1])){
                         return true; //on peut passer derriere la caisse pour le pousser
                     }
                     //exploration dans une nouvelle direction si on trouve un mur ?
-                    }
+                }
             }
             i = i + dir[0];
             j = j + dir[1];
         }
         return false;
     }
+    public boolean check3x3space(int l, int c, int[] dir, int[] murOffset, int[] murOffset2){ //pour la sortie du tunnel
+        return (lvl.estOccupable(l , c) && lvl.estOccupable(l + dir[0], c + dir[1]) && lvl.estOccupable(l + dir[0]*2, c + dir[1]*2)
+                && lvl.estOccupable(l + murOffset[0], c + murOffset[1]) && lvl.estOccupable(l + dir[0] + murOffset[0], c + dir[1] + murOffset[1])&& lvl.estOccupable(l + dir[0]*2 + murOffset[0], c + dir[1]*2 + murOffset[1])
+                && lvl.estOccupable(l + murOffset2[0], c + murOffset2[1]) && lvl.estOccupable(l + dir[0] + murOffset2[0], c + dir[1] + murOffset2[1])&& lvl.estOccupable(l + dir[0]*2 + murOffset2[0], c + dir[1]*2 + murOffset2[1]));
+    }
+    public boolean check2x3space(int l, int c, List<int[]> murAdjacents, int[] dir){ //pour la sortie du tunnel
+        int[] murOffset = getDirection(l,c, murAdjacents.get(0)[0], murAdjacents.get(0)[1]);
+        int[] murOffset2 = getDirection(l,c, murAdjacents.get(1)[0], murAdjacents.get(1)[1]);
+        return (lvl.estOccupable(l , c) && lvl.estOccupable(l + dir[0], c + dir[1])
+                && lvl.estOccupable(l + murOffset[0], c + murOffset[1]) && lvl.estOccupable(l + dir[0] + murOffset[0], c + dir[1] + murOffset[1])
+                && lvl.estOccupable(l + murOffset2[0], c + murOffset2[1]) && lvl.estOccupable(l + dir[0] + murOffset2[0], c + dir[1] + murOffset2[1]));
+    }
     //sortie du tunnel
-    public boolean sortieFinDuTunnel(int[] dir, int l, int c){
+    public boolean sortieFinDuTunnel(int[] dir, int l, int c, List<int[]> murAdjacents){
         int i = l;
         int j = c;
-        while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
-            if(niveau.estVide(i,j)) {
-                return true;
+        int[] murOffset = getDirection(l,c, murAdjacents.get(0)[0], murAdjacents.get(0)[1]);
+        int[] murOffset2 = getDirection(l,c, murAdjacents.get(1)[0], murAdjacents.get(1)[1]);
+        List<int[]> murs = positonsMur(l, c);
+        while ((0 < i && i < lvl.lignes()) && (0 < j && j < lvl.colonnes())) {
+            murs = positonsMur(i, j);
+            if (murs.size()==1) {
+                int[] dir2 = new int[2];
+                dir2[0] = -dir[0];
+                dir2[1] = -dir[1];
+                return sortieFinDuChemin(dir, i, j, murAdjacents.get(0));
+            }else{
+
+                if (check3x3space(i, j, dir, murOffset, murOffset2)) {
+                    return true;
+                } else {
+                    if (check2x3space(i, j, murAdjacents, dir)) {
+                        if (lvl.aMur(i + dir[0] * 2,  + dir[1] * 2)) {
+                            int[] mur = new int[2];
+                            mur[0] = i + dir[0] * 2;
+                            mur[1] = j + dir[1] * 2;
+                            int[] newDir = new int[2];
+                            newDir[0] = Math.abs(dir[1]);
+                            newDir[1] = Math.abs(dir[0]);
+                            int[] newDir2 = new int[2];
+                            newDir2[0] = -newDir[0];
+                            newDir2[1] = -newDir[1];
+                            return (butFinDuChemin(newDir, i + dir[0], j + dir[1]) || butFinDuChemin(newDir, i + dir[0], j + dir[1])) ||
+                                    sortieFinDuChemin(newDir, i + dir[0], j + dir[1], mur) || sortieFinDuChemin(newDir2, i + dir[0], j + dir[1], mur);
+                        }
+                    }
+
+                }
             }
             i = i + dir[0];
             j = j + dir[1];
         }
-        return true;
+        return false;
     }
     public boolean existeSortie(int l, int c, int[] dir, List<int[]> murAdjacents){
-        int[] dir2 = new int[2];
-        dir2[0] = -dir[0];
-        dir2[1] = -dir[1];
-        if(murFinDuChemin(dir, l, c) && murFinDuChemin(dir2, l, c)){
-            return false;   //cas mur en U, ou tunnel fermé
-        }else if(niveau.aBut(l,c)){
+        if(lvl.aBut(l,c)){
             return true;
-        } else if(butFinDuChemin(dir, l, c) || butFinDuChemin(dir2, l, c)) {
+        } else if(butFinDuChemin(dir, l, c)) {
             return true;
         } else{
             if(murAdjacents.size()==2){
-                return sortieFinDuTunnel(dir, l, c) || sortieFinDuTunnel(dir2, l, c);
+                return sortieFinDuTunnel(dir, l, c, murAdjacents);
             }
             else if (murAdjacents.size()==1) {
-                return sortieFinDuChemin(dir, l, c, murAdjacents.get(0)) || sortieFinDuChemin(dir2, l, c, murAdjacents.get(0));
+                return sortieFinDuChemin(dir, l, c, murAdjacents.get(0));
             }
         }
         return false;
     }
-    private boolean peutAtteindreBut(Niveau niveau, int l, int c) {
+    private boolean peutAtteindreBut(int l, int c) {
         // À implémenter : Vérifiez si une caisse à la position donnée peut atteindre un but
         List<int[]> murAdjacents = positonsMur(l,c);
         int[] dir;
-        boolean gaucheLibre = !niveau.aMur(l, c-1) && !niveau.aCaisse(l, c-1) && !niveau.aBut(l, c-1);
-        boolean droiteLibre = !niveau.aMur(l, c+1) && !niveau.aCaisse(l, c+1) && !niveau.aBut(l, c+1);
-        boolean hautLibre = !niveau.aMur(l-1, c) && !niveau.aCaisse(l-1, c) && !niveau.aBut(l-1, c);
-        boolean basLibre = !niveau.aMur(l+1, c) && !niveau.aCaisse(l+1, c) && !niveau.aBut(l+1, c);
-        if(niveau.aBut(l,c)){
+        boolean gaucheLibre = !lvl.aMur(l, c-1) && !lvl.aCaisse(l, c-1) && !lvl.aBut(l, c-1);
+        boolean droiteLibre = !lvl.aMur(l, c+1) && !lvl.aCaisse(l, c+1) && !lvl.aBut(l, c+1);
+        boolean hautLibre = !lvl.aMur(l-1, c) && !lvl.aCaisse(l-1, c) && !lvl.aBut(l-1, c);
+        boolean basLibre = !lvl.aMur(l+1, c) && !lvl.aCaisse(l+1, c) && !lvl.aBut(l+1, c);
+        if(lvl.aBut(l,c)){
             return true;
         }
-        if(murAdjacents.size()>=3){
-            return false;   //cas no exit
-        } else if (murAdjacents.size()==2) {
+        if (murAdjacents.size()==2) {
             if((!gaucheLibre || !droiteLibre) && (!hautLibre || !basLibre)){
                 return false; //cas coin
-            } else if ((!gaucheLibre && !droiteLibre) || (!hautLibre && !basLibre)) {
+            } else if ((gaucheLibre && droiteLibre) || (hautLibre && basLibre)) {
                 //cas tunnel explorer a gauche et droite
                 dir = directionToExplore(murAdjacents.get(0), l, c);
-                return existeSortie(l,c,dir, murAdjacents);
-
+                int[] dir2 = new int[2];
+                dir2[0] = -dir[0];
+                dir2[1] = -dir[1];
+                return existeSortie(l,c,dir, murAdjacents) ||  existeSortie(l,c,dir2, murAdjacents);
             }
         } else if (murAdjacents.size() == 1) {
             //cas mur, explorer a gauche et droite
@@ -363,7 +400,7 @@ class IAAssistance extends IA {
         return true;
     }
 
-    private List<Noeud> voisinsPossiblesJoueur(Niveau niveau, Noeud noeud) {
+    private List<Noeud> voisinsPossiblesJoueur(Noeud noeud) {
         List<Noeud> voisins = new ArrayList<>();
         int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
         int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
@@ -372,9 +409,9 @@ class IAAssistance extends IA {
             int voisinLig = noeud.getLigne() + dLig[i];
             int voisinCol = noeud.getColonne() + dCol[i];
 
-            // Vérifiez si le voisin est dans les limites du niveau et s'il est accessible
-            if (voisinLig >= 0 && voisinLig < niveau.lignes() && voisinCol >= 0 && voisinCol < niveau.colonnes()
-                    && niveau.estOccupable(voisinLig, voisinCol) || niveau.aPousseur(voisinLig, voisinCol)) {
+            // Vérifiez si le voisin est dans les limites du lvl et s'il est accessible
+            if (voisinLig >= 0 && voisinLig < lvl.lignes() && voisinCol >= 0 && voisinCol < lvl.colonnes()
+                    && lvl.estOccupable(voisinLig, voisinCol) || lvl.aPousseur(voisinLig, voisinCol)) {
                 voisins.add(new Noeud(noeud, voisinLig, voisinCol));
 
             }
@@ -382,7 +419,7 @@ class IAAssistance extends IA {
         return voisins;
     }
     // Méthode pour obtenir les voisins possibles d'un nœud
-    private List<Noeud> voisinsPossibles(Niveau niveau, Noeud noeud) {
+    private List<Noeud> voisinsPossibles(Noeud noeud) {
         List<Noeud> voisins = new ArrayList<>();
         int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
         int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
@@ -391,12 +428,15 @@ class IAAssistance extends IA {
             int voisinLig = noeud.getLigne() + dLig[i];
             int voisinCol = noeud.getColonne() + dCol[i];
 
-            // Vérifiez si le voisin est dans les limites du niveau et s'il est accessible
-            if (voisinLig >= 0 && voisinLig < niveau.lignes() && voisinCol >= 0 && voisinCol < niveau.colonnes()
-                    && niveau.estOccupable(voisinLig, voisinCol) || niveau.aPousseur(voisinLig, voisinCol)) {
-                if (peutAtteindreBut(niveau, voisinLig, voisinCol)) {
+            // Vérifiez si le voisin est dans les limites du lvl et s'il est accessible
+            if (voisinLig >= 0 && voisinLig < lvl.lignes() && voisinCol >= 0 && voisinCol < lvl.colonnes()
+                    && lvl.estOccupable(voisinLig, voisinCol) || lvl.aPousseur(voisinLig, voisinCol)) {
+                lvl = moveBoxCoords(noeud.getLigne(),noeud.getColonne(), voisinLig,voisinCol);
+                if (peutAtteindreBut(voisinLig, voisinCol)) {
+                    //verif si pousseur peut pousser ?
                     voisins.add(new Noeud(noeud, voisinLig, voisinCol));
                 }
+                lvl = moveBoxCoords(voisinLig,voisinCol, noeud.getLigne(),noeud.getColonne());
             }
         }
         return voisins;
@@ -414,9 +454,9 @@ class IAAssistance extends IA {
     private int nombreCaissesMalPlacees(Noeud depart) {
         int nombreCaissesMalPlacees = 0;
         // Parcourez toutes les caisses et vérifiez si elles sont mal placées
-        for (int i = 0; i < niveau.lignes(); i++) {
-            for (int j = 0; j < niveau.colonnes(); j++) {
-                if (niveau.aCaisse(i, j) && !niveau.aBut(i, j)) {
+        for (int i = 0; i < lvl.lignes(); i++) {
+            for (int j = 0; j < lvl.colonnes(); j++) {
+                if (lvl.aCaisse(i, j) && !lvl.aBut(i, j)) {
                     nombreCaissesMalPlacees++;
                 }
             }
@@ -449,9 +489,9 @@ class IAAssistance extends IA {
     }
     public List<int[]> findBoxes(){
         List<int[]> l = new ArrayList<>();
-        for(int j = 0; j<niveau.c; j++)
-            for(int i = 0; i< niveau.l; i++){
-                if(niveau.aCaisse(i, j)){
+        for(int j = 0; j<lvl.c; j++)
+            for(int i = 0; i< lvl.l; i++){
+                if(lvl.aCaisse(i, j)){
                     int[] el = new int[2]; // Créer un nouveau tableau pour chaque boîte
                     el[0] = i;
                     el[1] = j;
@@ -478,6 +518,67 @@ class IAAssistance extends IA {
         lvl.videCase(l, c);
         lvl.ajouteCaisse(nl, nc);
         return lvl;
+    }
+    public List<int[]> casesAdjacentesLibre(IAAssistance.Noeud pos){
+        int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
+        int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
+        List<int[]> dirAdjacents = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            int voisinLig = pos.getLigne() + dLig[i];
+            int voisinCol = pos.getColonne() + dCol[i];
+            if (!lvl.aMur(voisinLig, voisinCol) && !lvl.aCaisse(voisinLig, voisinCol)) {
+                int[] posDispo = new int[2];
+                posDispo[0] = voisinLig;
+                posDispo[1] = voisinCol;
+                dirAdjacents.add(posDispo);
+            }
+        }
+        return dirAdjacents;
+    }
+    public List<Sequence<Coup>> TrouveCoupsPossibles(Noeud box, Noeud Joueur, Noeud goal, List<Sequence<Coup>> listMouvementsPossibles){
+//        List<Sequence<Coup>> listMouvementsPossibles = new ArrayList<>();
+        Sequence<Coup> mouvementsPossibles = Configuration.nouvelleSequence();
+        List<int[]> positonsCaisseATester = casesAdjacentesLibre(box);
+        for(int[] position : positonsCaisseATester){
+            Noeud pos = new Noeud(position[0], position[1]);
+            List<Noeud> path = trouverCheminJoueur(Joueur, pos);
+            if(path != null){   //Path du pousseurs jusququ coté adjacent d'une caisse
+                for (int i = 0; i < path.size() - 1; i++) {     //On deplace le joueur dans cette case adjacente
+                    Noeud curr = path.get(i);
+                    Noeud next = path.get(i+1);
+                    Coup coup = new Coup();
+                    coup.deplacementPousseur(curr.getLigne(), curr.getColonne(), next.getLigne(), next.getColonne());
+                    Joueur.ligne = next.getLigne();
+                    Joueur.colonne = next.getColonne();
+                    mouvementsPossibles.insereQueue(coup);
+                }
+                List<Noeud> boxPath = null;
+                List<Noeud> playerPath = null;
+                int[] dir = getDirection(Joueur.getLigne(), Joueur.getColonne(), box.getLigne(), box.getColonne());
+                while(playerPath == null){    //on pousse tant qu'on a pas un chemin possible
+                    if(lvl.estOccupable(box.getLigne() + dir[0], box.getColonne() + dir[1])){    //on peut pousser la box
+                        Coup coup = new Coup();
+                        coup.deplacementPousseur(Joueur.getLigne(), Joueur.getColonne(), box.getLigne(), box.getColonne());
+                        coup.deplacementCaisse(box.getLigne(), box.getColonne(),box.getLigne() + dir[0], box.getColonne() + dir[1]);
+                        lvl = moveBoxCoords(box.getLigne(), box.getColonne(), box.getLigne() + dir[0], box.getColonne()+dir[1]);
+                        Joueur.ligne = box.getLigne();
+                        Joueur.colonne = box.getColonne();
+                        box.ligne = box.getLigne() + dir[0];
+                        box.colonne = box.getColonne()+dir[1];
+                        mouvementsPossibles.insereQueue(coup);
+                        boxPath = trouverChemin(box, goal);
+                        int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());//considerer pousseur, meme verif, voir si le pousseur a un chemin dans la direction a pousser
+                        Noeud boxSide = new Noeud(box.getLigne() - direction[0], box.getColonne() - direction[1]);
+                        playerPath = trouverCheminJoueur(Joueur, boxSide);
+                    }
+                }
+            }
+            if(!mouvementsPossibles.estVide()){
+                listMouvementsPossibles.add(mouvementsPossibles);
+            }
+
+        }
+        return listMouvementsPossibles;
     }
     public Sequence<Coup> createSequenceDeCoups(List<Noeud> cheminJoueur, List<Noeud> cheminBoite) {
         Sequence<Coup> sequenceDeCoups = Configuration.nouvelleSequence();
@@ -519,7 +620,7 @@ class IAAssistance extends IA {
             } else {
                 // Sinon, créez simplement un mouvement pour le joueur
                 Noeud boxPosToPush = new Noeud( currentNode.ligne - directionCaisse[0], currentNode.colonne - directionCaisse[1]);
-                List<Noeud> replacement = trouverCheminJoueur(lvl, playerPos, boxPosToPush);
+                List<Noeud> replacement = trouverCheminJoueur(playerPos, boxPosToPush);
                 for (int j = 0; j < Objects.requireNonNull(replacement).size() - 1; j++) {  //cas ou le joueur ne peut pas pousser et il y a pas de replacementi,a traiter
                     Noeud curr = replacement.get(j);
                     Noeud next = replacement.get(j + 1);
@@ -540,33 +641,14 @@ class IAAssistance extends IA {
         return sequenceDeCoups;
     }
 
-//    public List<int[]> casesAdjacentesLibre(Noeud pos){
-//        int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
-//        int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
-//        List<int[]> dirAdjacents = new ArrayList<>();
-//        for (int i = 0; i < 4; i++) {
-//            int voisinLig = pos.getLigne() + dLig[i];
-//            int voisinCol = pos.getColonne() + dCol[i];
-//            if(!niveau.aMur(voisinLig, voisinCol) || !niveau.aCaisse(voisinLig,voisinCol)){
-//                int[] posMur = new int[2];
-//                posMur[0] = voisinLig;
-//                posMur[1] = voisinCol;
-//                dirAdjacents.add(posMur);
-//
-//            }
-//    }
-//    public Sequence<Coup> TrouveCoupsPossibles(Noeud box){
-//        Sequence<Coup> mouvementsPossibles = Configuration.nouvelleSequence();
-//
-//        return mouvementsPossibles;
-//    }
     @Override
     public Sequence<Coup> joue() {
         lvl = niveau.clone();
         Sequence<Coup> resultat = Configuration.nouvelleSequence();
+
         //#TODO Convert list node to sequence des coups
-        int pousseurL = niveau.lignePousseur();
-        int pousseurC = niveau.colonnePousseur();
+        int pousseurL = lvl.lignePousseur();
+        int pousseurC = lvl.colonnePousseur();
 
         List<int[]> boxes = findBoxes();
         List<int[]> goals = findGoals();
@@ -578,27 +660,21 @@ class IAAssistance extends IA {
         Noeud player = new Noeud(pousseurL, pousseurC);
 //        System.out.println("Player " + player.lig + "," + player.col);
 //
-        List<Noeud> boxPath = trouverChemin(lvl, box, goal);
-        assert boxPath != null;
-        int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
-        Noeud boxSide = new Noeud(box.getLigne() - direction[0], box.getColonne() - direction[1]);
+        List<Noeud> boxPath = trouverChemin(box, goal);
+        List<Noeud> playerPath = null;
+        if(boxPath != null){
+            int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
+            Noeud boxSide = new Noeud(box.getLigne() - direction[0], box.getColonne() - direction[1]);
 //        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
-        List<Noeud> playerPath = trouverCheminJoueur(lvl, player, boxSide);
+            playerPath = trouverCheminJoueur(player, boxSide);
+        }
+
         //si la box n'a pas un chemin direct vers le but, evaluer les coups possibles et les chemins a partir d'eux.
         //dans ce cas on doit creer une liste de coups poussibles, car le joueur ne peut pas se placer dans la case pour pousser
-        if((boxPath == null) || (playerPath == null)){
-            //
-            resultat = TrouveCoupsPossibles(box);
+        if((playerPath == null)){
+            List<Sequence<Coup>> coups = new ArrayList<>();
+            TrouveCoupsPossibles(box, player, goal, coups);
         }
-//        System.out.println("boxpath");
-//        for( Node n : boxPath){
-//            System.out.println("(" + n.lig + " , " + n.col + ")");
-//        }
-//        System.out.println("playerpath");
-//        Collections.reverse(playerPath);
-//        for( Node n : playerPath){
-//            System.out.println("(" + n.lig + " , " + n.col + ")");
-//        }
         resultat = createSequenceDeCoups(playerPath, boxPath);
         return resultat;
     }

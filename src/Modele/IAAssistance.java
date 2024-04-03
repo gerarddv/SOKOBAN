@@ -301,7 +301,7 @@ class IAAssistance extends IA {
         return false;
     }
     //sortie du tunnel
-    public boolean sortieFinDuTunnel(int[] dir, int l, int c, List<int[]> murAdjacents){
+    public boolean sortieFinDuTunnel(int[] dir, int l, int c){
         int i = l;
         int j = c;
         while ((0 < i && i < niveau.lignes()) && (0 < j && j < niveau.colonnes())) {
@@ -325,14 +325,10 @@ class IAAssistance extends IA {
             return true;
         } else{
             if(murAdjacents.size()==2){
-                if (sortieFinDuTunnel(dir, l, c, murAdjacents) || sortieFinDuTunnel(dir2, l, c, murAdjacents)) {
-                    return true;
-                }
+                return sortieFinDuTunnel(dir, l, c) || sortieFinDuTunnel(dir2, l, c);
             }
             else if (murAdjacents.size()==1) {
-                if (sortieFinDuChemin(dir, l, c, murAdjacents.get(0)) || sortieFinDuChemin(dir2, l, c, murAdjacents.get(0))) {
-                    return true;
-                }
+                return sortieFinDuChemin(dir, l, c, murAdjacents.get(0)) || sortieFinDuChemin(dir2, l, c, murAdjacents.get(0));
             }
         }
         return false;
@@ -353,7 +349,7 @@ class IAAssistance extends IA {
         } else if (murAdjacents.size()==2) {
             if((!gaucheLibre || !droiteLibre) && (!hautLibre || !basLibre)){
                 return false; //cas coin
-            } else if ((!gaucheLibre && !basLibre) || (!hautLibre && !basLibre)) {
+            } else if ((!gaucheLibre && !droiteLibre) || (!hautLibre && !basLibre)) {
                 //cas tunnel explorer a gauche et droite
                 dir = directionToExplore(murAdjacents.get(0), l, c);
                 return existeSortie(l,c,dir, murAdjacents);
@@ -543,6 +539,27 @@ class IAAssistance extends IA {
         }
         return sequenceDeCoups;
     }
+
+//    public List<int[]> casesAdjacentesLibre(Noeud pos){
+//        int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
+//        int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
+//        List<int[]> dirAdjacents = new ArrayList<>();
+//        for (int i = 0; i < 4; i++) {
+//            int voisinLig = pos.getLigne() + dLig[i];
+//            int voisinCol = pos.getColonne() + dCol[i];
+//            if(!niveau.aMur(voisinLig, voisinCol) || !niveau.aCaisse(voisinLig,voisinCol)){
+//                int[] posMur = new int[2];
+//                posMur[0] = voisinLig;
+//                posMur[1] = voisinCol;
+//                dirAdjacents.add(posMur);
+//
+//            }
+//    }
+//    public Sequence<Coup> TrouveCoupsPossibles(Noeud box){
+//        Sequence<Coup> mouvementsPossibles = Configuration.nouvelleSequence();
+//
+//        return mouvementsPossibles;
+//    }
     @Override
     public Sequence<Coup> joue() {
         lvl = niveau.clone();
@@ -568,6 +585,11 @@ class IAAssistance extends IA {
 //        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
         List<Noeud> playerPath = trouverCheminJoueur(lvl, player, boxSide);
         //si la box n'a pas un chemin direct vers le but, evaluer les coups possibles et les chemins a partir d'eux.
+        //dans ce cas on doit creer une liste de coups poussibles, car le joueur ne peut pas se placer dans la case pour pousser
+        if((boxPath == null) || (playerPath == null)){
+            //
+            resultat = TrouveCoupsPossibles(box);
+        }
 //        System.out.println("boxpath");
 //        for( Node n : boxPath){
 //            System.out.println("(" + n.lig + " , " + n.col + ")");

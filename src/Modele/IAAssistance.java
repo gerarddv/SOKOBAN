@@ -454,7 +454,7 @@ class IAAssistance extends IA {
                 // Sinon, créez simplement un mouvement pour le joueur
                 Noeud boxPosToPush = new Noeud( currentNode.ligne - directionCaisse[0], currentNode.colonne - directionCaisse[1]);
                 List<Noeud> replacement = trouverChemin(lvl, playerPos, boxPosToPush);
-                for (int j = 0; j < Objects.requireNonNull(replacement).size() - 1; j++) {
+                for (int j = 0; j < Objects.requireNonNull(replacement).size() - 1; j++) {  //cas ou le joueur ne peut pas pousser et il y a pas de replacementi,a traiter
                     Noeud curr = replacement.get(j);
                     Noeud next = replacement.get(j + 1);
 

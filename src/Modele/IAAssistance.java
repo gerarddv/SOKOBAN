@@ -163,6 +163,53 @@ class IAAssistance extends IA {
         // Aucun chemin trouvé
         return null;
     }
+    private List<Noeud> trouverCheminJoueur(Niveau niveau, Noeud depart, Noeud arrivee) {
+        // Initialisation de la liste ouverte et de la liste fermée
+        PriorityQueue<Noeud> listeOuverte = new PriorityQueue<>(Comparator.comparingInt(Noeud::getF));
+        HashSet<Noeud> listeFermee = new HashSet<>();
+
+        // Ajout du nœud de départ à la liste ouverte
+        listeOuverte.add(depart);
+
+        while (!listeOuverte.isEmpty()) {
+            // Récupération du nœud avec le coût le plus faible depuis la liste ouverte
+            Noeud courant = listeOuverte.poll();
+
+            // Si le nœud courant est le nœud d'arrivée, le chemin est trouvé
+            if (courant.equals(arrivee)) {
+                // Retourner le chemin reconstruit depuis le nœud d'arrivée jusqu'au nœud de départ
+                return reconstruireChemin(courant);
+            }
+
+            // Ajouter le nœud courant à la liste fermée
+            listeFermee.add(courant);
+
+            // Explorer les nœuds voisins
+            for (Noeud voisin : voisinsPossiblesJoueur(niveau, courant)) {
+                if (listeFermee.contains(voisin)) {
+                    continue; // Ignorez les nœuds déjà explorés
+                }
+
+                // Calculer le coût G du voisin
+                int nouveauG = courant.getG() + coutDeplacement(courant, voisin);
+
+                if (nouveauG < voisin.getG() || !listeOuverte.contains(voisin)) {
+                    // Mettre à jour le nœud voisin
+                    voisin.setG(nouveauG);
+                    voisin.setH(heuristique(voisin, arrivee));
+                    voisin.setF(voisin.getG() + voisin.getH());
+                    voisin.setPere(courant);
+
+                    // Ajouter le voisin à la liste ouverte s'il n'y est pas déjà
+                    if (!listeOuverte.contains(voisin)) {
+                        listeOuverte.add(voisin);
+                    }
+                }
+            }
+        }
+        // Aucun chemin trouvé
+        return null;
+    }
 
     // Méthode pour reconstruire le chemin à partir du nœud d'arrivée
     private List<Noeud> reconstruireChemin(Noeud arrivee) {
@@ -183,11 +230,12 @@ class IAAssistance extends IA {
         List<int[]> murAdjacents = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
             int voisinLig = l + dLig[i];
-            int voisinCol = l + dCol[i];
+            int voisinCol = c + dCol[i];
             if(niveau.aMur(voisinLig, voisinCol)){
                 int[] posMur = new int[2];
                 posMur[0] = voisinLig;
                 posMur[1] = voisinCol;
+                murAdjacents.add(posMur);
 
             }
         }
@@ -271,7 +319,9 @@ class IAAssistance extends IA {
         dir2[1] = -dir[1];
         if(murFinDuChemin(dir, l, c) && murFinDuChemin(dir2, l, c)){
             return false;   //cas mur en U, ou tunnel fermé
-        }else if(butFinDuChemin(dir, l, c) || butFinDuChemin(dir2, l, c)) {
+        }else if(niveau.aBut(l,c)){
+            return true;
+        } else if(butFinDuChemin(dir, l, c) || butFinDuChemin(dir2, l, c)) {
             return true;
         } else{
             if(murAdjacents.size()==2){
@@ -285,8 +335,7 @@ class IAAssistance extends IA {
                 }
             }
         }
-
-        return true;
+        return false;
     }
     private boolean peutAtteindreBut(Niveau niveau, int l, int c) {
         // À implémenter : Vérifiez si une caisse à la position donnée peut atteindre un but
@@ -296,7 +345,9 @@ class IAAssistance extends IA {
         boolean droiteLibre = !niveau.aMur(l, c+1) && !niveau.aCaisse(l, c+1) && !niveau.aBut(l, c+1);
         boolean hautLibre = !niveau.aMur(l-1, c) && !niveau.aCaisse(l-1, c) && !niveau.aBut(l-1, c);
         boolean basLibre = !niveau.aMur(l+1, c) && !niveau.aCaisse(l+1, c) && !niveau.aBut(l+1, c);
-
+        if(niveau.aBut(l,c)){
+            return true;
+        }
         if(murAdjacents.size()>=3){
             return false;   //cas no exit
         } else if (murAdjacents.size()==2) {
@@ -314,6 +365,25 @@ class IAAssistance extends IA {
             return existeSortie(l, c, dir, murAdjacents);
         }
         return true;
+    }
+
+    private List<Noeud> voisinsPossiblesJoueur(Niveau niveau, Noeud noeud) {
+        List<Noeud> voisins = new ArrayList<>();
+        int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
+        int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
+
+        for (int i = 0; i < 4; i++) {
+            int voisinLig = noeud.getLigne() + dLig[i];
+            int voisinCol = noeud.getColonne() + dCol[i];
+
+            // Vérifiez si le voisin est dans les limites du niveau et s'il est accessible
+            if (voisinLig >= 0 && voisinLig < niveau.lignes() && voisinCol >= 0 && voisinCol < niveau.colonnes()
+                    && niveau.estOccupable(voisinLig, voisinCol) || niveau.aPousseur(voisinLig, voisinCol)) {
+                voisins.add(new Noeud(noeud, voisinLig, voisinCol));
+
+            }
+        }
+        return voisins;
     }
     // Méthode pour obtenir les voisins possibles d'un nœud
     private List<Noeud> voisinsPossibles(Niveau niveau, Noeud noeud) {
@@ -453,7 +523,7 @@ class IAAssistance extends IA {
             } else {
                 // Sinon, créez simplement un mouvement pour le joueur
                 Noeud boxPosToPush = new Noeud( currentNode.ligne - directionCaisse[0], currentNode.colonne - directionCaisse[1]);
-                List<Noeud> replacement = trouverChemin(lvl, playerPos, boxPosToPush);
+                List<Noeud> replacement = trouverCheminJoueur(lvl, playerPos, boxPosToPush);
                 for (int j = 0; j < Objects.requireNonNull(replacement).size() - 1; j++) {  //cas ou le joueur ne peut pas pousser et il y a pas de replacementi,a traiter
                     Noeud curr = replacement.get(j);
                     Noeud next = replacement.get(j + 1);
@@ -496,8 +566,8 @@ class IAAssistance extends IA {
         int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
         Noeud boxSide = new Noeud(box.getLigne() - direction[0], box.getColonne() - direction[1]);
 //        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
-        List<Noeud> playerPath = trouverChemin(lvl, player, boxSide);
-//
+        List<Noeud> playerPath = trouverCheminJoueur(lvl, player, boxSide);
+        //si la box n'a pas un chemin direct vers le but, evaluer les coups possibles et les chemins a partir d'eux.
 //        System.out.println("boxpath");
 //        for( Node n : boxPath){
 //            System.out.println("(" + n.lig + " , " + n.col + ")");

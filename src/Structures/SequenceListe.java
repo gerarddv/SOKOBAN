@@ -61,6 +61,12 @@ public class SequenceListe<E> implements Sequence<E> {
 		}
 		return resultat;
 	}
+	@Override
+	public E getQueue(){
+		E resultat;
+		resultat = queue.element;
+		return resultat;
+	}
 
 	@Override
 	public boolean estVide() {

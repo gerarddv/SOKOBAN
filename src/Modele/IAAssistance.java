@@ -123,7 +123,7 @@ class IAAssistance extends IA {
 
         // Ajout du nœud de départ à la liste ouverte
         listeOuverte.add(depart);
-
+        Niveau original = lvl.clone();
         while (!listeOuverte.isEmpty()) {
             // Récupération du nœud avec le coût le plus faible depuis la liste ouverte
             Noeud courant = listeOuverte.poll();
@@ -139,7 +139,7 @@ class IAAssistance extends IA {
 
             // Explorer les nœuds voisins
             for (Noeud voisin : voisinsPossibles(courant)) {
-                lvl = niveau.clone();
+                lvl = original.clone();
                 if (listeFermee.contains(voisin)) {
                     continue; // Ignorez les nœuds déjà explorés
                 }
@@ -535,8 +535,8 @@ class IAAssistance extends IA {
         }
         return dirAdjacents;
     }
+    //Si on a pas un path directe, on cherche les mouvements possibles depuis la niveau origine
     public List<Sequence<Coup>> TrouveCoupsPossibles(Noeud box, Noeud Joueur, Noeud goal, List<Sequence<Coup>> listMouvementsPossibles){
-//        List<Sequence<Coup>> listMouvementsPossibles = new ArrayList<>();
         Sequence<Coup> mouvementsPossibles = Configuration.nouvelleSequence();
         List<int[]> positonsCaisseATester = casesAdjacentesLibre(box);
         for(int[] position : positonsCaisseATester){
@@ -580,72 +580,35 @@ class IAAssistance extends IA {
         }
         return listMouvementsPossibles;
     }
-    public Sequence<Coup> createSequenceDeCoups(List<Noeud> cheminJoueur, List<Noeud> cheminBoite) {
-        Sequence<Coup> sequenceDeCoups = Configuration.nouvelleSequence();
-        // Obtenez les mouvements du joueur
-        for (int i = 0; i < cheminJoueur.size() - 1; i++) {
-            Noeud currentNode = cheminJoueur.get(i);
-            Noeud nextNode = cheminJoueur.get(i + 1);
-
-            // Créez un nouveau coup pour le mouvement du joueur
-            Coup coup = new Coup();
-            coup.deplacementPousseur(currentNode.ligne, currentNode.colonne, nextNode.ligne, nextNode.colonne);
-            lvl.pousseurL = nextNode.ligne;
-            lvl.pousseurC = nextNode.colonne;
-            assert sequenceDeCoups != null;
-            sequenceDeCoups.insereQueue(coup);
-        }
-        // Obtenez les mouvements du joueur et de la boîte
-        for (int i = 0; i < cheminBoite.size() - 1; i++) {
-            Noeud currentNode = cheminBoite.get(i);
-            Noeud nextNode = cheminBoite.get(i + 1);
-            Noeud playerPos = new Noeud(lvl.pousseurL, lvl.pousseurC);
-
-            // Obtenez les directions pour les mouvements du joueur et de la boîte
-            int[] directionPousseur = getDirection(playerPos.getLigne(), playerPos.getColonne(), currentNode.getLigne(), currentNode.getColonne());
-            int[] directionCaisse = getDirection(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
-
-            // Vérifiez si le joueur peut pousser la boîte tout en se déplaçant
-            if ((directionCaisse[0] == directionPousseur[0] && directionCaisse[1] == directionPousseur[1]) && playerAdjToBox(playerPos,currentNode)) {
-                // Créez un nouveau coup pour le mouvement du joueur et de la boîte
-                Coup coup = new Coup();
-                coup.deplacementCaisse(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
-                // corriger deplacement playerPos->currentNode
-                lvl = moveBoxCoords(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
-                coup.deplacementPousseur(lvl.lignePousseur(), lvl.colonnePousseur(), currentNode.getLigne(), currentNode.getColonne());
-                assert sequenceDeCoups != null;
-                sequenceDeCoups.insereQueue(coup);
-                lvl.pousseurL = currentNode.getLigne();
-                lvl.pousseurC = currentNode.getColonne();
-            } else {
-                // Sinon, créez simplement un mouvement pour le joueur
-                Noeud boxPosToPush = new Noeud( currentNode.ligne - directionCaisse[0], currentNode.colonne - directionCaisse[1]);
-                List<Noeud> replacement = trouverCheminJoueur(playerPos, boxPosToPush);
-                for (int j = 0; j < Objects.requireNonNull(replacement).size() - 1; j++) {  //cas ou le joueur ne peut pas pousser et il y a pas de replacementi,a traiter
-                    Noeud curr = replacement.get(j);
-                    Noeud next = replacement.get(j + 1);
-
-                    // Créez un nouveau coup pour le mouvement du joueur
-                    Coup coup = new Coup();
-                    coup.deplacementPousseur(curr.getLigne(), curr.getColonne(), next.getLigne(), next.getColonne());
-                    assert sequenceDeCoups != null;
-                    sequenceDeCoups.insereQueue(coup);
-                    lvl.pousseurL = next.getLigne();
-                    lvl.pousseurC = next.getColonne();
-                    //#TODO once done need to recalculate player path to push the box ?
-                }
-                i--;
-            }
-
-        }
-        return sequenceDeCoups;
+    //verifie si la sequence est complete
+    public boolean sequenceComplete(Sequence<Coup> sequenceDeCoups, Noeud goal){
+        if(sequenceDeCoups.estVide()){return false;}
+        Mouvement box = sequenceDeCoups.getQueue().caisse;
+        return (box.versL == goal.getLigne() && box.versC == goal.getColonne());
     }
-
-    @Override
-    public Sequence<Coup> joue() {
-        lvl = niveau.clone();
-        Sequence<Coup> resultat = Configuration.nouvelleSequence();
-
+//    public List<int[]> choisirBoxetGoal(List<int[]> boxes, List<int[]> goals, Noeud player){
+//        List<int[]> departObjectif = new ArrayList<>();
+//        List<Noeud> boxPath;
+//        List<Noeud> playerPath;
+//        for(int[] box : boxes){
+//            Noeud boxNode = new Noeud(box[0], box[1]);
+//            for(int[] goal : goals){
+//                Noeud goalNode = new Noeud(goal[0], goal[1]);
+//                boxPath = trouverChemin(boxNode, goalNode);
+//                int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
+//                Noeud boxSide = new Noeud(boxNode.getLigne() - direction[0], boxNode.getColonne() - direction[1]);
+//                playerPath = trouverCheminJoueur(player, boxSide);
+//                if(boxPath != null || playerPath != null){  //peut resoudre pour la box et goal
+//                    departObjectif.add(box);
+//                    departObjectif.add(goal);
+//                }
+//            }
+//        }
+//        return departObjectif;
+//    }
+    public Sequence<Coup> createSequenceDeCoups(Sequence<Coup> sequenceDeCoups) {
+//        Sequence<Coup>  = Configuration.nouvelleSequence();
+        // Obtenez les mouvements du joueur
         //#TODO Convert list node to sequence des coups
         int pousseurL = lvl.lignePousseur();
         int pousseurC = lvl.colonnePousseur();
@@ -653,29 +616,125 @@ class IAAssistance extends IA {
         List<int[]> boxes = findBoxes();
         List<int[]> goals = findGoals();
 
-        Noeud box = new Noeud(boxes.get(0)[0], boxes.get(0)[1]);
-//        System.out.println("Box " + box.lig + "," + box.col);
-        Noeud goal = new Noeud(goals.get(0)[0], goals.get(0)[1]);
-//        System.out.println("Goal " + goal.lig + "," + goal.col);
         Noeud player = new Noeud(pousseurL, pousseurC);
-//        System.out.println("Player " + player.lig + "," + player.col);
-//
-        List<Noeud> boxPath = trouverChemin(box, goal);
-        List<Noeud> playerPath = null;
-        if(boxPath != null){
-            int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
-            Noeud boxSide = new Noeud(box.getLigne() - direction[0], box.getColonne() - direction[1]);
-//        System.out.println("BoxSide : " + boxSide.lig + "," + boxSide.col);
-            playerPath = trouverCheminJoueur(player, boxSide);
-        }
+        Noeud box = new Noeud(boxes.get(0)[0], boxes.get(0)[1]);
+        Noeud goal = new Noeud(goals.get(0)[0], goals.get(0)[1]);
+        //boucler tant q'on a des boxes et goals
+//        while(!boxes.isEmpty() && !goals.isEmpty()) {
+//            Noeud player = new Noeud(pousseurL, pousseurC);
+//            List<int[]> boxAndGoal = choisirBoxetGoal(boxes, goals, player);
+//            Noeud box = new Noeud(boxAndGoal.get(0)[0], boxAndGoal.get(0)[1]);
+//            Noeud goal = new Noeud(boxAndGoal.get(1)[0], boxAndGoal.get(1)[1]);
+//            //remove goal et box from list
+//            Iterator<int[]> iteratorB = boxes.iterator();
+//            while (iteratorB.hasNext()) {
+//                int[] currBox = iteratorB.next();
+//                if (currBox[0] == box.getLigne() && currBox[1] == box.getColonne()) {
+//                    iteratorB.remove();
+//                }
+//            }
+//            Iterator<int[]> iteratorG = goals.iterator();
+//            while (iteratorG.hasNext()) {
+//                int[] currBox = iteratorG.next();
+//                if (currBox[0] == goal.getLigne() && currBox[1] == goal.getColonne()) {
+//                    iteratorG.remove();
+//                }
+//            }
 
-        //si la box n'a pas un chemin direct vers le but, evaluer les coups possibles et les chemins a partir d'eux.
-        //dans ce cas on doit creer une liste de coups poussibles, car le joueur ne peut pas se placer dans la case pour pousser
-        if((playerPath == null)){
-            List<Sequence<Coup>> coups = new ArrayList<>();
-            TrouveCoupsPossibles(box, player, goal, coups);
-        }
-        resultat = createSequenceDeCoups(playerPath, boxPath);
+            //boucler tant que la sequence n'est pas completée
+            while (!sequenceComplete(sequenceDeCoups, goal)) {
+                List<Noeud> boxPath = trouverChemin(box, goal);
+                int[] direction = new int[2];
+                Noeud boxSide;
+                List<Noeud> playerPath = null;
+                if (boxPath != null) {
+                    direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
+                    boxSide = new Noeud(box.getLigne() - direction[0], box.getColonne() - direction[1]);
+                    playerPath = trouverCheminJoueur(player, boxSide);
+                }
+
+                //si la box n'a pas un chemin direct vers le but, evaluer les coups possibles et les chemins a partir d'eux.
+                //dans ce cas on doit creer une liste de coups poussibles, car le joueur ne peut pas se placer dans la case pour pousser
+                if ((playerPath == null)) {
+                    List<Sequence<Coup>> coups = new ArrayList<>();
+                    TrouveCoupsPossibles(box, player, goal, coups);
+                    for (Sequence<Coup> s : coups) {
+                        //get meilleur coups possibles test chaque sequence #TODO
+                        Coup c = s.extraitTete();
+                        sequenceDeCoups.insereQueue(c);
+                        while (!s.estVide()) {
+                            c = s.extraitTete();
+                            sequenceDeCoups.insereQueue(c);
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < playerPath.size() - 1; i++) {
+                        Noeud currentNode = playerPath.get(i);
+                        Noeud nextNode = playerPath.get(i + 1);
+
+                        // Créez un nouveau coup pour le mouvement du joueur
+                        Coup coup = new Coup();
+                        coup.deplacementPousseur(currentNode.ligne, currentNode.colonne, nextNode.ligne, nextNode.colonne);
+                        lvl.pousseurL = nextNode.ligne;
+                        lvl.pousseurC = nextNode.colonne;
+                        assert sequenceDeCoups != null;
+                        sequenceDeCoups.insereQueue(coup);
+                    }
+                    // Obtenez les mouvements du joueur et de la boîte
+                    for (int i = 0; i < boxPath.size() - 1; i++) {
+                        Noeud currentNode = boxPath.get(i);
+                        Noeud nextNode = boxPath.get(i + 1);
+                        Noeud playerPos = new Noeud(lvl.pousseurL, lvl.pousseurC);
+
+                        // Obtenez les directions pour les mouvements du joueur et de la boîte
+                        int[] directionPousseur = getDirection(playerPos.getLigne(), playerPos.getColonne(), currentNode.getLigne(), currentNode.getColonne());
+                        int[] directionCaisse = getDirection(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
+
+                        // Vérifiez si le joueur peut pousser la boîte tout en se déplaçant
+                        if ((directionCaisse[0] == directionPousseur[0] && directionCaisse[1] == directionPousseur[1]) && playerAdjToBox(playerPos, currentNode)) {
+                            // Créez un nouveau coup pour le mouvement du joueur et de la boîte
+                            Coup coup = new Coup();
+                            coup.deplacementCaisse(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
+                            // corriger deplacement playerPos->currentNode
+                            lvl = moveBoxCoords(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
+                            coup.deplacementPousseur(lvl.lignePousseur(), lvl.colonnePousseur(), currentNode.getLigne(), currentNode.getColonne());
+                            assert sequenceDeCoups != null;
+                            sequenceDeCoups.insereQueue(coup);
+                            lvl.pousseurL = currentNode.getLigne();
+                            lvl.pousseurC = currentNode.getColonne();
+                        } else {
+                            // Sinon, créez simplement un mouvement pour le joueur
+                            Noeud boxPosToPush = new Noeud(currentNode.ligne - directionCaisse[0], currentNode.colonne - directionCaisse[1]);
+                            List<Noeud> replacement = trouverCheminJoueur(playerPos, boxPosToPush);
+                            for (int j = 0; j < Objects.requireNonNull(replacement).size() - 1; j++) {  //cas ou le joueur ne peut pas pousser et il y a pas de replacementi,a traiter
+                                Noeud curr = replacement.get(j);
+                                Noeud next = replacement.get(j + 1);
+
+                                // Créez un nouveau coup pour le mouvement du joueur
+                                Coup coup = new Coup();
+                                coup.deplacementPousseur(curr.getLigne(), curr.getColonne(), next.getLigne(), next.getColonne());
+                                assert sequenceDeCoups != null;
+                                sequenceDeCoups.insereQueue(coup);
+                                lvl.pousseurL = next.getLigne();
+                                lvl.pousseurC = next.getColonne();
+                                //#TODO once done need to recalculate player path to push the box ?
+                            }
+                            i--;
+                        }
+
+                    }
+
+                }
+            }
+//        }
+        return sequenceDeCoups;
+    }
+
+    @Override
+    public Sequence<Coup> joue() {
+        lvl = niveau.clone();
+        Sequence<Coup> resultat = Configuration.nouvelleSequence();
+        resultat = createSequenceDeCoups(resultat);
         return resultat;
     }
 }

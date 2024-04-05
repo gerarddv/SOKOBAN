@@ -292,14 +292,16 @@ class IAAssistance extends IA {
         return false;
     }
     //verifie s'il existe une sortie a la fin du chemin
-    public boolean sortieFinDuChemin(int[] dir, int l, int c, int[] mur){
+    public boolean sortieFinDuChemin(int[] dir, int l, int c, int[] mur){   //reviser condition
         int i = l;
         int j = c;
         int[] murOffset = getDirection(l, c, mur[0], mur[1]);
         while ((0 < i && i < lvl.lignes()) && (0 < j && j < lvl.colonnes())) {
-            if(lvl.estVide(i + murOffset[0],j + murOffset[1]) && lvl.estVide(i + dir[0] + murOffset[0],j + dir[1] + murOffset[1])) {
-                if(lvl.estVide(i + dir[0], j + dir[1])) {
-                    if (lvl.estVide(i - murOffset[0], j - murOffset[1]) && lvl.estVide(i + dir[0] - murOffset[0], j + dir[1] - murOffset[1])){
+//           List<int[]> currMur = positonsMur(i,j);
+            if (lvl.estVide(i + murOffset[0], j + murOffset[1]) && lvl.estVide(i + dir[0] + murOffset[0], j + dir[1] + murOffset[1])) {
+                if (lvl.estVide(i + dir[0], j + dir[1])) {
+                    if ((lvl.estVide(i - murOffset[0], j - murOffset[1])|| (lvl.estVide(i + murOffset[0], j + murOffset[1]))
+                            && (lvl.estVide(i + dir[0] - murOffset[0], j + dir[1] - murOffset[1])) || (lvl.estVide(i + dir[0] + murOffset[0], j + dir[1] + murOffset[1])))){
                         return true; //on peut passer derriere la caisse pour le pousser
                     }
                     //exploration dans une nouvelle direction si on trouve un mur ?
@@ -337,7 +339,6 @@ class IAAssistance extends IA {
                 dir2[1] = -dir[1];
                 return sortieFinDuChemin(dir, i, j, murAdjacents.get(0));
             }else{
-
                 if (check3x3space(i, j, dir, murOffset, murOffset2)) {
                     return true;
                 } else {
@@ -404,7 +405,10 @@ class IAAssistance extends IA {
         } else if (murAdjacents.size() == 1) {
             //cas mur, explorer a gauche et droite
             dir = directionToExplore(murAdjacents.get(0), l, c);
-            return existeSortie(l, c, dir, murAdjacents);
+            int[] dir2 = new int[2];
+            dir2[0] = -dir[0];
+            dir2[1] = -dir[1];
+            return existeSortie(l, c, dir, murAdjacents) || existeSortie(l, c, dir2, murAdjacents);
         }
         return true;
     }

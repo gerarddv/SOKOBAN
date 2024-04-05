@@ -131,15 +131,23 @@ class IAAssistance extends IA {
             // Si le nœud courant est le nœud d'arrivée, le chemin est trouvé
             if (courant.equals(arrivee)) {
                 // Retourner le chemin reconstruit depuis le nœud d'arrivée jusqu'au nœud de départ
+                lvl = original.clone();
                 return reconstruireChemin(courant);
             }
 
             // Ajouter le nœud courant à la liste fermée
+            Noeud pere = courant.pere;
             listeFermee.add(courant);
+            if(pere==null){
+                lvl = moveBoxCoords(depart.getLigne(), depart.getColonne(), courant.getLigne(), courant.getColonne());
+            }
+            else{
+                lvl = moveBoxCoords(pere.getLigne(), pere.getColonne(), courant.getLigne(), courant.getColonne());
+            }
 
             // Explorer les nœuds voisins
             for (Noeud voisin : voisinsPossibles(courant)) {
-                lvl = original.clone();
+
                 if (listeFermee.contains(voisin)) {
                     continue; // Ignorez les nœuds déjà explorés
                 }
@@ -162,6 +170,7 @@ class IAAssistance extends IA {
             }
         }
         // Aucun chemin trouvé
+        lvl = original.clone();
         return null;
     }
     private List<Noeud> trouverCheminJoueur(Noeud depart, Noeud arrivee) {
@@ -400,6 +409,10 @@ class IAAssistance extends IA {
         return true;
     }
 
+    public boolean PlayerPeutPousser(Noeud pos, Noeud nextPos){
+        int[] dir = getDirection(pos.getLigne(), pos.getColonne(), nextPos.getLigne(), nextPos.getColonne());
+        return lvl.estOccupable(pos.getLigne() - dir[0], pos.getColonne() - dir[1]);
+    }
     private List<Noeud> voisinsPossiblesJoueur(Noeud noeud) {
         List<Noeud> voisins = new ArrayList<>();
         int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
@@ -412,7 +425,7 @@ class IAAssistance extends IA {
             // Vérifiez si le voisin est dans les limites du lvl et s'il est accessible
             if (voisinLig >= 0 && voisinLig < lvl.lignes() && voisinCol >= 0 && voisinCol < lvl.colonnes()
                     && lvl.estOccupable(voisinLig, voisinCol) || lvl.aPousseur(voisinLig, voisinCol)) {
-                voisins.add(new Noeud(noeud, voisinLig, voisinCol));
+                    voisins.add(new Noeud(noeud, voisinLig, voisinCol));
 
             }
         }
@@ -430,14 +443,19 @@ class IAAssistance extends IA {
 
             // Vérifiez si le voisin est dans les limites du lvl et s'il est accessible
             if (voisinLig >= 0 && voisinLig < lvl.lignes() && voisinCol >= 0 && voisinCol < lvl.colonnes()
-                    && lvl.estOccupable(voisinLig, voisinCol) || lvl.aPousseur(voisinLig, voisinCol)) {
-                lvl = moveBoxCoords(noeud.getLigne(),noeud.getColonne(), voisinLig,voisinCol);
-                if (peutAtteindreBut(voisinLig, voisinCol)) {
+                    && (lvl.estOccupable(voisinLig, voisinCol) || lvl.aBut(voisinLig,voisinCol)) || lvl.aPousseur(voisinLig, voisinCol)) {
+                if (PlayerPeutPousser(noeud, new Noeud(voisinLig, voisinCol))) {
+                    lvl = moveBoxCoords(noeud.getLigne(),noeud.getColonne(), voisinLig,voisinCol);
                     //verif si pousseur peut pousser ?
-                    voisins.add(new Noeud(noeud, voisinLig, voisinCol));
+                    if(peutAtteindreBut(voisinLig, voisinCol)){
+                        voisins.add(new Noeud(noeud, voisinLig, voisinCol));
+                    }
+//                    voisins.add(new Noeud(noeud, voisinLig, voisinCol));
+                    lvl = moveBoxCoords(voisinLig,voisinCol, noeud.getLigne(),noeud.getColonne());
                 }
-                lvl = moveBoxCoords(voisinLig,voisinCol, noeud.getLigne(),noeud.getColonne());
+
             }
+
         }
         return voisins;
     }
@@ -519,6 +537,29 @@ class IAAssistance extends IA {
         lvl.ajouteCaisse(nl, nc);
         return lvl;
     }
+    public Niveau movePousseurCoords(int l, int c, int nl, int nc){
+        if(lvl.aBut(l,c)){
+            lvl.videCase(l, c);
+            lvl.ajouteBut(l,c);
+        }
+        else{
+            lvl.videCase(l, c);
+        }
+        // Vide la case d'origine
+        if (lvl.estOccupable(nl, nc)) {
+            lvl.pousseurL = nl;
+            lvl.pousseurC = nc;
+            // Vérifie si la case de destination contient un but
+            if (lvl.aBut(nl, nc)) {
+                lvl.cases[lvl.pousseurL][lvl.pousseurC]=2;// Ajoute le pousseur à la nouvelle position
+                lvl.ajouteBut(nl, nc); // Ajoute le but à la nouvelle position
+            } else {
+                lvl.cases[lvl.pousseurL][lvl.pousseurC]=2; // Ajoute le pousseur à la nouvelle position
+            }
+        }
+        return lvl;
+    }
+
     public List<int[]> casesAdjacentesLibre(IAAssistance.Noeud pos){
         int[] dLig = {-1, 1, 0, 0}; // Déplacements possibles en ligne : haut, bas, gauche, droite
         int[] dCol = {0, 0, -1, 1}; // Déplacements possibles en colonne : haut, bas, gauche, droite
@@ -586,26 +627,29 @@ class IAAssistance extends IA {
         Mouvement box = sequenceDeCoups.getQueue().caisse;
         return (box.versL == goal.getLigne() && box.versC == goal.getColonne());
     }
-//    public List<int[]> choisirBoxetGoal(List<int[]> boxes, List<int[]> goals, Noeud player){
-//        List<int[]> departObjectif = new ArrayList<>();
-//        List<Noeud> boxPath;
-//        List<Noeud> playerPath;
-//        for(int[] box : boxes){
-//            Noeud boxNode = new Noeud(box[0], box[1]);
-//            for(int[] goal : goals){
-//                Noeud goalNode = new Noeud(goal[0], goal[1]);
-//                boxPath = trouverChemin(boxNode, goalNode);
-//                int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
-//                Noeud boxSide = new Noeud(boxNode.getLigne() - direction[0], boxNode.getColonne() - direction[1]);
-//                playerPath = trouverCheminJoueur(player, boxSide);
-//                if(boxPath != null || playerPath != null){  //peut resoudre pour la box et goal
-//                    departObjectif.add(box);
-//                    departObjectif.add(goal);
-//                }
-//            }
-//        }
-//        return departObjectif;
-//    }
+    //verifier s'il y a des box qui peuvent atteindre un seul but
+    public List<int[]> choisirBoxetGoal(List<int[]> boxes, List<int[]> goals, Noeud player){
+        List<int[]> departObjectif = new ArrayList<>();
+        List<Noeud> boxPath;
+        List<Noeud> playerPath;
+        for(int[] box : boxes){
+            Noeud boxNode = new Noeud(box[0], box[1]);
+            for(int[] goal : goals){
+                Noeud goalNode = new Noeud(goal[0], goal[1]);
+                boxPath = trouverChemin(boxNode, goalNode);
+                if(boxPath!=null) {
+                    int[] direction = getDirection(boxPath.get(0).getLigne(), boxPath.get(0).getColonne(), boxPath.get(1).getLigne(), boxPath.get(1).getColonne());
+                    Noeud boxSide = new Noeud(boxNode.getLigne() - direction[0], boxNode.getColonne() - direction[1]);
+                    playerPath = trouverCheminJoueur(player, boxSide);
+                    if (playerPath != null) {  //peut resoudre pour la box et goal
+                        departObjectif.add(box);
+                        departObjectif.add(goal);
+                    }
+                }
+            }
+        }
+        return departObjectif;
+    }
     public Sequence<Coup> createSequenceDeCoups(Sequence<Coup> sequenceDeCoups) {
 //        Sequence<Coup>  = Configuration.nouvelleSequence();
         // Obtenez les mouvements du joueur
@@ -617,30 +661,34 @@ class IAAssistance extends IA {
         List<int[]> goals = findGoals();
 
         Noeud player = new Noeud(pousseurL, pousseurC);
-        Noeud box = new Noeud(boxes.get(0)[0], boxes.get(0)[1]);
-        Noeud goal = new Noeud(goals.get(0)[0], goals.get(0)[1]);
-        //boucler tant q'on a des boxes et goals
-//        while(!boxes.isEmpty() && !goals.isEmpty()) {
-//            Noeud player = new Noeud(pousseurL, pousseurC);
-//            List<int[]> boxAndGoal = choisirBoxetGoal(boxes, goals, player);
-//            Noeud box = new Noeud(boxAndGoal.get(0)[0], boxAndGoal.get(0)[1]);
-//            Noeud goal = new Noeud(boxAndGoal.get(1)[0], boxAndGoal.get(1)[1]);
-//            //remove goal et box from list
-//            Iterator<int[]> iteratorB = boxes.iterator();
-//            while (iteratorB.hasNext()) {
-//                int[] currBox = iteratorB.next();
-//                if (currBox[0] == box.getLigne() && currBox[1] == box.getColonne()) {
-//                    iteratorB.remove();
-//                }
-//            }
-//            Iterator<int[]> iteratorG = goals.iterator();
-//            while (iteratorG.hasNext()) {
-//                int[] currBox = iteratorG.next();
-//                if (currBox[0] == goal.getLigne() && currBox[1] == goal.getColonne()) {
-//                    iteratorG.remove();
-//                }
-//            }
+        Noeud box;
+        Noeud goal;
+//        boucler tant q'on a des boxes et goals
+        while(!boxes.isEmpty() && !goals.isEmpty()) {
+            player = new Noeud(lvl.lignePousseur(), lvl.colonnePousseur());
+            if(boxes.size()>1 && goals.size()>1) {
+                List<int[]> boxAndGoal = choisirBoxetGoal(boxes, goals, player);
+                box = new Noeud(boxAndGoal.get(0)[0], boxAndGoal.get(0)[1]);
+                goal = new Noeud(boxAndGoal.get(1)[0], boxAndGoal.get(1)[1]);
 
+            }else{
+                box = new Noeud(boxes.get(0)[0], boxes.get(0)[1]);
+                goal = new Noeud(goals.get(0)[0], goals.get(0)[1]);
+            }
+            Iterator<int[]> iteratorB = boxes.iterator();
+            while (iteratorB.hasNext()) {
+                int[] currBox = iteratorB.next();
+                if (currBox[0] == box.getLigne() && currBox[1] == box.getColonne()) {
+                    iteratorB.remove();
+                }
+            }
+            Iterator<int[]> iteratorG = goals.iterator();
+            while (iteratorG.hasNext()) {
+                int[] currGoal = iteratorG.next();
+                if (currGoal[0] == goal.getLigne() && currGoal[1] == goal.getColonne()) {
+                    iteratorG.remove();
+                }
+            }
             //boucler tant que la sequence n'est pas completée
             while (!sequenceComplete(sequenceDeCoups, goal)) {
                 List<Noeud> boxPath = trouverChemin(box, goal);
@@ -696,12 +744,20 @@ class IAAssistance extends IA {
                             Coup coup = new Coup();
                             coup.deplacementCaisse(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
                             // corriger deplacement playerPos->currentNode
-                            lvl = moveBoxCoords(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
+
+                            if(lvl.aBut(nextNode.getLigne(), nextNode.getColonne())){
+                                lvl = moveBoxCoords(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
+                                lvl.videCase(nextNode.getLigne(), nextNode.getColonne());
+                                lvl.ajouteCaisseSurBut(goal.getLigne(),goal.getColonne());
+                            }else{
+                                lvl = moveBoxCoords(currentNode.getLigne(), currentNode.getColonne(), nextNode.getLigne(), nextNode.getColonne());
+                            }
                             coup.deplacementPousseur(lvl.lignePousseur(), lvl.colonnePousseur(), currentNode.getLigne(), currentNode.getColonne());
                             assert sequenceDeCoups != null;
                             sequenceDeCoups.insereQueue(coup);
                             lvl.pousseurL = currentNode.getLigne();
                             lvl.pousseurC = currentNode.getColonne();
+
                         } else {
                             // Sinon, créez simplement un mouvement pour le joueur
                             Noeud boxPosToPush = new Noeud(currentNode.ligne - directionCaisse[0], currentNode.colonne - directionCaisse[1]);
@@ -721,12 +777,10 @@ class IAAssistance extends IA {
                             }
                             i--;
                         }
-
                     }
-
                 }
             }
-//        }
+        }
         return sequenceDeCoups;
     }
 

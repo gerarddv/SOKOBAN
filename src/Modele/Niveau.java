@@ -35,6 +35,7 @@ public class Niveau implements Cloneable {
 	static final int POUSSEUR = 2;
 	static final int CAISSE = 4;
 	static final int BUT = 8;
+	static final int CAISSESURBUT = 16;
 	int l, c;
 	int[][] cases;
 	String nom;
@@ -185,6 +186,10 @@ public class Niveau implements Cloneable {
 		ajoute(BUT, i, j);
 	}
 
+	void ajouteCaisseSurBut(int i, int j) {
+		ajoute(CAISSESURBUT, i, j);
+	}
+
 	public int lignes() {
 		return l;
 	}
@@ -218,7 +223,7 @@ public class Niveau implements Cloneable {
 	}
 
 	public boolean estOccupable(int l, int c) {
-		return (cases[l][c] & (MUR | CAISSE | POUSSEUR)) == 0;
+		return (cases[l][c] & (MUR | CAISSE | POUSSEUR | CAISSESURBUT)) == 0;
 	}
 
 	public boolean estTermine() {
